@@ -1,0 +1,222 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #e8e8e8;
+  background: #1a1a2e;
+}
+
+/* ── Top bar ─────────────────────────────────────────── */
+.app-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: #16213e;
+  border-bottom: 1px solid #2a2a4a;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.app-topbar-title {
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  margin-right: 8px;
+  color: #fff;
+}
+
+.app-topbar .sep {
+  width: 1px;
+  height: 20px;
+  background: #3a3a5a;
+  flex-shrink: 0;
+}
+
+/* ── Body (palette + canvas + sidebar) ───────────────── */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Left palette ────────────────────────────────────── */
+.app-sidebar-left {
+  width: 170px;
+  background: #1e1e36;
+  border-right: 1px solid #2a2a4a;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+/* ── Canvas ───────────────────────────────────────────── */
+.app-canvas {
+  flex: 1;
+  position: relative;
+  background: #0f0f23;
+}
+
+/* ── Right sidebar ───────────────────────────────────── */
+.app-sidebar-right {
+  width: 340px;
+  background: #1e1e36;
+  border-left: 1px solid #2a2a4a;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding-right: 20px;
+}
+
+/* ── Dashboard ───────────────────────────────────────── */
+.app-dashboard-resize-handle {
+  height: 5px;
+  background: #2a2a4a;
+  cursor: ns-resize;
+  flex-shrink: 0;
+}
+
+.app-dashboard-resize-handle:hover {
+  background: #4a4a6a;
+}
+
+.app-dashboard {
+  background: #16213e;
+  border-top: 1px solid #2a2a4a;
+  flex-shrink: 0;
+  padding: 10px 20px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: #c8c8d8;
+}
+
+/* ── Shared form elements ────────────────────────────── */
+.sim-btn {
+  padding: 6px 14px;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  background: #2a2a4a;
+  color: #e8e8e8;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sim-btn:hover:not(:disabled) {
+  background: #3a3a6a;
+}
+.sim-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sim-btn-primary {
+  background: #4a6fa5;
+  border-color: #5a7fb5;
+}
+.sim-btn-primary:hover:not(:disabled) {
+  background: #5a8fc5;
+}
+.sim-btn-danger {
+  background: #8b3a3a;
+  border-color: #a04a4a;
+}
+.sim-btn-danger:hover:not(:disabled) {
+  background: #a04a4a;
+}
+
+.sim-input, .sim-select {
+  padding: 5px 8px;
+  border: 1px solid #3a3a5a;
+  border-radius: 5px;
+  background: #2a2a4a;
+  color: #e8e8e8;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.sim-input:focus, .sim-select:focus {
+  outline: none;
+  border-color: #5a7fb5;
+}
+
+.sim-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8888aa;
+  margin-bottom: 3px;
+}
+
+/* ── Transport buttons (play/pause/etc) ──────────────── */
+.transport-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #3a3a5a;
+  border-radius: 8px;
+  background: #2a2a4a;
+  color: #e8e8e8;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.transport-btn:hover:not(:disabled) {
+  background: #3a3a6a;
+}
+.transport-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Section headers in sidebars ─────────────────────── */
+.panel-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid #2a2a4a;
+  margin-bottom: 8px;
+}
+
+/* ── Metric tag chips ────────────────────────────────── */
+.metric-chip {
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── React Flow controls override ────────────────────── */
+.react-flow__controls {
+  background: #1e1e36;
+  border: 1px solid #3a3a5a;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.react-flow__controls-button {
+  background: #1e1e36;
+  border-bottom: 1px solid #2a2a4a;
+  fill: #8888aa;
+}
+.react-flow__controls-button:hover {
+  background: #2a2a4a;
+}
+.react-flow__controls-button svg {
+  fill: #8888aa;
+}
+
+/* ── Node hover buttons (show on hover) ──────────────── */
+.sim-node:hover .sim-node-hover-btn {
+  display: flex !important;
+}
+.sim-node-hover-btn:hover {
+  background: #c0392b !important;
+  border-color: #e74c3c !important;
+  color: #fff !important;
+}
+.sim-node-clone:hover {
+  background: #4a6fa5 !important;
+  border-color: #5a8fc5 !important;
+}
