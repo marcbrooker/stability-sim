@@ -36,17 +36,29 @@ export function SimulationControls() {
   // Config inputs — local overrides; loaded SimulationConfig takes precedence
   const [endTime, setEndTime] = useState(60);
   const [seed, setSeed] = useState(42);
+  const [randomSeed, setRandomSeed] = useState(true);
 
   // Sync local inputs when a SimulationConfig is loaded
   useEffect(() => {
     if (simulationConfig) {
       setEndTime(simulationConfig.endTime);
       setSeed(simulationConfig.seed);
+      setRandomSeed(false);
     }
   }, [simulationConfig]);
 
+  /** Return the seed to use for the next run, generating a new one if randomSeed is on. */
+  const getEffectiveSeed = useCallback((): number => {
+    if (randomSeed) {
+      const s = Math.floor(Math.random() * 2 ** 32);
+      setSeed(s);
+      return s;
+    }
+    return seed;
+  }, [randomSeed, seed]);
+
   /** Build the Architecture and SimulationConfig to send to the worker. */
-  const buildStartPayload = useCallback((): { architecture: Architecture; config: SimulationConfig } => {
+  const buildStartPayload = useCallback((effectiveSeed: number): { architecture: Architecture; config: SimulationConfig } => {
     const arch = useArchitectureStore.getState();
     const simStore = useSimulationStore.getState();
     const loadedConfig = simStore.simulationConfig;
@@ -68,10 +80,10 @@ export function SimulationControls() {
       endTime,
       metricsWindowSize: loadedConfig?.metricsWindowSize ?? 1,
       failureScenarios: mergedScenarios,
-      seed,
+      seed: effectiveSeed,
     };
     return { architecture, config };
-  }, [endTime, seed]);
+  }, [endTime]);
 
   // Lazily create the bridge on first use
   const getBridge = useCallback((): WorkerBridge => {
@@ -112,13 +124,14 @@ export function SimulationControls() {
       setStatus('running');
       return;
     }
-    const { architecture, config } = buildStartPayload();
+    const s = getEffectiveSeed();
+    const { architecture, config } = buildStartPayload(s);
     resetMetrics();
     setCurrentTime(0);
-    bridge.start(architecture, config, seed);
+    bridge.start(architecture, config, s);
     bridge.setSpeed(useSimulationStore.getState().speedMultiplier);
     setStatus('running');
-  }, [status, seed, getBridge, buildStartPayload, setStatus, setCurrentTime, resetMetrics]);
+  }, [status, getEffectiveSeed, getBridge, buildStartPayload, setStatus, setCurrentTime, resetMetrics]);
 
   const handlePause = useCallback(() => {
     getBridge().pause();
@@ -129,14 +142,15 @@ export function SimulationControls() {
     const bridge = getBridge();
     if (status === 'idle' || status === 'completed') {
       // Need to start first
-      const { architecture, config } = buildStartPayload();
+      const s = getEffectiveSeed();
+      const { architecture, config } = buildStartPayload(s);
       resetMetrics();
       setCurrentTime(0);
-      bridge.start(architecture, config, seed);
+      bridge.start(architecture, config, s);
       setStatus('paused');
     }
     bridge.step();
-  }, [status, seed, getBridge, buildStartPayload, setStatus, setCurrentTime, resetMetrics]);
+  }, [status, getEffectiveSeed, getBridge, buildStartPayload, setStatus, setCurrentTime, resetMetrics]);
 
   const handleReset = useCallback(() => {
     getBridge().reset();
@@ -160,15 +174,16 @@ export function SimulationControls() {
     const bridge = getBridge();
     bridge.setSpeed(1e9);
     if (status === 'idle' || status === 'completed') {
-      const { architecture, config } = buildStartPayload();
+      const s = getEffectiveSeed();
+      const { architecture, config } = buildStartPayload(s);
       resetMetrics();
       setCurrentTime(0);
-      bridge.start(architecture, config, seed);
+      bridge.start(architecture, config, s);
     } else {
       bridge.resume();
     }
     setStatus('running');
-  }, [status, seed, getBridge, buildStartPayload, setStatus, setCurrentTime, resetMetrics]);
+  }, [status, getEffectiveSeed, getBridge, buildStartPayload, setStatus, setCurrentTime, resetMetrics]);
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
@@ -232,8 +247,17 @@ export function SimulationControls() {
           value={seed}
           onChange={(e) => setSeed(Number(e.target.value))}
           style={{ width: 68 }}
-          disabled={isRunning || isPaused}
+          disabled={isRunning || isPaused || randomSeed}
         />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }} title="Use a random seed each run">
+          <input
+            type="checkbox"
+            checked={randomSeed}
+            onChange={(e) => setRandomSeed(e.target.checked)}
+            disabled={isRunning || isPaused}
+          />
+          <span style={{ fontSize: 11, color: '#8888aa' }}>Random</span>
+        </label>
       </label>
 
       <span className="sep" />
