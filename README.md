@@ -116,6 +116,3 @@ src/
 └── types/             # TypeScript type definitions
 ```
 
-## License
-
-Private — not published.
