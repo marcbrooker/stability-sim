@@ -75,46 +75,32 @@ describe('Queue component', () => {
       const wu2 = createWorkUnit('wu-2');
       const wu3 = createWorkUnit('wu-3');
 
-      // First arrival goes straight to downstream
+      // All arrivals are forwarded to downstream immediately
       queue.handleEvent(createArrival('q-1', wu1), ctx);
-      expect(ctx._scheduledEvents).toHaveLength(1);
-      expect(ctx._scheduledEvents[0].workUnit.id).toBe('wu-1');
-
-      // Second and third arrivals are buffered
       queue.handleEvent(createArrival('q-1', wu2), ctx);
       queue.handleEvent(createArrival('q-1', wu3), ctx);
-      expect(ctx._scheduledEvents).toHaveLength(1); // Still just wu-1 sent
+      expect(ctx._scheduledEvents).toHaveLength(3);
+      expect(ctx._scheduledEvents[0].workUnit.id).toBe('wu-1');
+      expect(ctx._scheduledEvents[1].workUnit.id).toBe('wu-2');
+      expect(ctx._scheduledEvents[2].workUnit.id).toBe('wu-3');
 
-      // Departure of wu-1 triggers wu-2 to be sent next (FIFO)
-      const ctx2 = createMockContext({ currentTime: 1 });
-      queue.handleEvent(createDeparture('q-1', wu1, 1), ctx2);
-      expect(ctx2._scheduledEvents).toHaveLength(1);
-      expect(ctx2._scheduledEvents[0].workUnit.id).toBe('wu-2');
-
-      // Departure of wu-2 triggers wu-3
-      const ctx3 = createMockContext({ currentTime: 2 });
-      queue.handleEvent(createDeparture('q-1', wu2, 2), ctx3);
-      expect(ctx3._scheduledEvents).toHaveLength(1);
-      expect(ctx3._scheduledEvents[0].workUnit.id).toBe('wu-3');
+      // originClientId is rewritten to queue ID for routing back
+      expect(ctx._scheduledEvents[0].workUnit.originClientId).toBe('q-1');
     });
   });
 
   describe('max capacity (Req 5.2, 5.3)', () => {
-    it('rejects arrivals when queue is full', () => {
+    it('rejects arrivals when queue is full (buffer + in-flight)', () => {
       const config: QueueConfig = { maxCapacity: 2 };
       const queue = new Queue('q-1', config);
       const ctx = createMockContext();
 
-      // Fill the queue: first goes to downstream, second buffered
+      // Two arrivals: both sent downstream → inFlightCount=2, depth=2=maxCapacity
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-1')), ctx);
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-2')), ctx);
 
-      // Third arrival: buffer has 1 item + 1 in downstream = buffer.length is 1, maxCapacity is 2
-      // Actually buffer has wu-2 (wu-1 was dequeued and sent). So depth=1, capacity=2 → accepted
-      queue.handleEvent(createArrival('q-1', createWorkUnit('wu-3')), ctx);
-
-      // Now buffer has wu-2, wu-3 → depth=2 = maxCapacity → next should be rejected
-      const result = queue.handleEvent(createArrival('q-1', createWorkUnit('wu-4')), ctx);
+      // Third arrival: depth=2 >= maxCapacity → rejected
+      const result = queue.handleEvent(createArrival('q-1', createWorkUnit('wu-3')), ctx);
       expect(result).toHaveLength(1);
       expect(result[0].kind).toBe('departure');
       expect(result[0].targetComponentId).toBe('client-1');
@@ -122,13 +108,11 @@ describe('Queue component', () => {
     });
 
     it('tracks rejected count in metrics', () => {
-      const config: QueueConfig = { maxCapacity: 1 };
+      const config: QueueConfig = { maxCapacity: 2 };
       const queue = new Queue('q-1', config);
       const ctx = createMockContext();
 
-      // First goes to downstream (buffer empty after dequeue)
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-1')), ctx);
-      // Second buffered (depth=1 = maxCapacity)
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-2')), ctx);
       // Third rejected
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-3')), ctx);
@@ -143,15 +127,12 @@ describe('Queue component', () => {
       const queue = new Queue('q-1', config);
       const ctx = createMockContext();
 
-      // First goes to downstream
+      // Two arrivals sent downstream → inFlightCount=2 = threshold
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-1')), ctx);
-      // Second buffered (depth=1)
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-2')), ctx);
-      // Third buffered (depth=2 = threshold → next rejected)
-      queue.handleEvent(createArrival('q-1', createWorkUnit('wu-3')), ctx);
 
-      // Fourth should be rejected (depth=2 >= threshold=2)
-      const result = queue.handleEvent(createArrival('q-1', createWorkUnit('wu-4')), ctx);
+      // Third should be rejected (depth=2 >= threshold=2)
+      const result = queue.handleEvent(createArrival('q-1', createWorkUnit('wu-3')), ctx);
       expect(result).toHaveLength(1);
       expect(result[0].workUnit.metadata['failed']).toBe(true);
     });
@@ -183,14 +164,14 @@ describe('Queue component', () => {
 
       // Arrival: enqueue then immediately dequeue to downstream
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-1')), ctx);
-      // Should record depth on enqueue (1) and dequeue (0)
       const depthRecords = recordedMetrics.filter(m => m.name === 'queueDepth');
       expect(depthRecords.length).toBeGreaterThanOrEqual(1);
 
-      // Second arrival: buffered (depth=1)
+      // With no downstream returning, second arrival also sent immediately (buffer stays 0)
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-2')), ctx);
       const lastRecord = recordedMetrics.filter(m => m.name === 'queueDepth').pop();
-      expect(lastRecord!.value).toBe(1);
+      // Buffer is 0 after dequeue; depth metric records buffer length
+      expect(lastRecord!.value).toBe(0);
     });
   });
 
@@ -202,11 +183,14 @@ describe('Queue component', () => {
 
       queue.handleEvent(createArrival('q-1', wu), ctx);
 
+      // Downstream sends departure back to queue (originClientId rewritten to q-1)
+      const downstreamWu = { ...wu, originClientId: 'q-1' };
       const ctx2 = createMockContext({ currentTime: 1 });
-      const result = queue.handleEvent(createDeparture('q-1', wu, 1, false), ctx2);
+      const result = queue.handleEvent(createDeparture('q-1', downstreamWu, 1, false), ctx2);
 
       expect(result).toHaveLength(1);
       expect(result[0].kind).toBe('departure');
+      // Real origin restored
       expect(result[0].targetComponentId).toBe('client-1');
       expect(result[0].workUnit.metadata['failed']).toBe(false);
     });
@@ -218,11 +202,13 @@ describe('Queue component', () => {
 
       queue.handleEvent(createArrival('q-1', wu), ctx);
 
+      const downstreamWu = { ...wu, originClientId: 'q-1' };
       const ctx2 = createMockContext({ currentTime: 1 });
-      const result = queue.handleEvent(createDeparture('q-1', wu, 1, true), ctx2);
+      const result = queue.handleEvent(createDeparture('q-1', downstreamWu, 1, true), ctx2);
 
       expect(result).toHaveLength(1);
       expect(result[0].workUnit.metadata['failed']).toBe(true);
+      expect(result[0].targetComponentId).toBe('client-1');
     });
   });
 
@@ -243,9 +229,9 @@ describe('Queue component', () => {
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-1')), ctx);
       queue.handleEvent(createArrival('q-1', createWorkUnit('wu-2')), ctx);
 
-      // wu-1 was enqueued then dequeued to downstream, wu-2 is buffered
+      // Both enqueued and immediately dequeued to downstream
       expect(queue.getMetrics().totalEnqueued).toBe(2);
-      expect(queue.getMetrics().totalDequeued).toBe(1);
+      expect(queue.getMetrics().totalDequeued).toBe(2);
     });
   });
 
