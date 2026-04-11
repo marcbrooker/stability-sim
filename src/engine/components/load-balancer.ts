@@ -34,6 +34,9 @@ export class LoadBalancer implements SimComponent {
   // Track in-flight work units to know which downstream they went to
   private workUnitToDownstream: Map<string, string> = new Map();
 
+  // Track real origin for in-flight items: workUnitId → real originClientId
+  private pendingOrigins: Map<string, string> = new Map();
+
   // Metrics
   private totalForwarded: number = 0;
   private totalFailed: number = 0;
@@ -83,12 +86,15 @@ export class LoadBalancer implements SimComponent {
 
     this.totalForwarded++;
 
+    // Stash real origin and rewrite so departures route back through this LB
+    this.pendingOrigins.set(event.workUnit.id, event.workUnit.originClientId);
+
     // Forward as arrival to selected downstream
     const arrivalEvent: SimEvent = {
       id: uuidv4(),
       timestamp: context.currentTime,
       targetComponentId: selected,
-      workUnit: event.workUnit,
+      workUnit: { ...event.workUnit, originClientId: this.id },
       kind: 'arrival',
     };
 
@@ -108,8 +114,17 @@ export class LoadBalancer implements SimComponent {
       this.workUnitToDownstream.delete(event.workUnit.id);
     }
 
+    // Restore real origin; drop stale duplicates (same pattern as Queue)
+    const realOrigin = this.pendingOrigins.get(event.workUnit.id);
+    this.pendingOrigins.delete(event.workUnit.id);
+    if (!realOrigin) return [];
+
     const failed = event.workUnit.metadata['failed'] === true;
-    return [createDepartureToOrigin(event.workUnit, context, failed)];
+    return [createDepartureToOrigin(
+      { ...event.workUnit, originClientId: realOrigin },
+      context,
+      failed,
+    )];
   }
 
   /**
@@ -179,6 +194,7 @@ export class LoadBalancer implements SimComponent {
     this.connectionCounts.clear();
     this.failedDownstream.clear();
     this.workUnitToDownstream.clear();
+    this.pendingOrigins.clear();
     this.totalForwarded = 0;
     this.totalFailed = 0;
   }

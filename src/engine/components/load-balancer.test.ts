@@ -239,7 +239,9 @@ describe('LoadBalancer component', () => {
       // First send arrival so the work unit is tracked
       lb.handleEvent(createArrival('lb-1', wu), ctx);
 
-      const result = lb.handleEvent(createDeparture('lb-1', wu, 5, false), ctx);
+      // Departure from downstream has originClientId rewritten to lb-1
+      const downstreamWu = { ...wu, originClientId: 'lb-1' };
+      const result = lb.handleEvent(createDeparture('lb-1', downstreamWu, 5, false), ctx);
 
       expect(result).toHaveLength(1);
       expect(result[0].kind).toBe('departure');
@@ -253,10 +255,12 @@ describe('LoadBalancer component', () => {
       const wu = createWorkUnit('wu-1', 'client-1');
 
       lb.handleEvent(createArrival('lb-1', wu), ctx);
-      const result = lb.handleEvent(createDeparture('lb-1', wu, 5, true), ctx);
+      const downstreamWu = { ...wu, originClientId: 'lb-1' };
+      const result = lb.handleEvent(createDeparture('lb-1', downstreamWu, 5, true), ctx);
 
       expect(result).toHaveLength(1);
       expect(result[0].workUnit.metadata['failed']).toBe(true);
+      expect(result[0].targetComponentId).toBe('client-1');
     });
   });
 

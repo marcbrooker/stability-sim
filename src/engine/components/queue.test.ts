@@ -265,4 +265,37 @@ describe('Queue component', () => {
       expect(ctx._scheduledEvents).toHaveLength(0);
     });
   });
+
+  describe('stale departure handling (retry reuse)', () => {
+    it('drops stale departure when work unit ID is reused by a retry', () => {
+      const config: QueueConfig = { maxCapacity: 10, maxConcurrency: 1 };
+      const queue = new Queue('q-1', config);
+      const ctx = createMockContext();
+
+      // First arrival: wu-1 sent downstream
+      const wu = createWorkUnit('wu-1', 'client-1');
+      queue.handleEvent(createArrival('q-1', wu), ctx);
+      expect(ctx._scheduledEvents).toHaveLength(1);
+
+      // Simulate retry: same work unit ID arrives again (client retried after timeout)
+      const retryWu = createWorkUnit('wu-1', 'client-1');
+      queue.handleEvent(createArrival('q-1', retryWu), ctx);
+
+      // First departure comes back (from original in-flight) — consumes pendingOrigins
+      const dep1Wu = { ...wu, originClientId: 'q-1' };
+      const ctx2 = createMockContext({ currentTime: 1 });
+      const result1 = queue.handleEvent(createDeparture('q-1', dep1Wu, 1, false), ctx2);
+      // Should forward to client
+      expect(result1).toHaveLength(1);
+      expect(result1[0].targetComponentId).toBe('client-1');
+
+      // Second departure (from retry) — pendingOrigins already consumed, should be dropped
+      const dep2Wu = { ...retryWu, originClientId: 'q-1' };
+      const ctx3 = createMockContext({ currentTime: 2 });
+      const result2 = queue.handleEvent(createDeparture('q-1', dep2Wu, 2, false), ctx3);
+      // Should NOT forward to client (stale), and must NOT target the queue itself
+      const selfTargeted = result2.filter(e => e.targetComponentId === 'q-1');
+      expect(selfTargeted).toHaveLength(0);
+    });
+  });
 });
