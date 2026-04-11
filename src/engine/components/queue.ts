@@ -101,15 +101,19 @@ export class Queue implements SimComponent {
     this.inFlightCount--;
 
     // Restore the real origin and forward response to the client
-    const realOrigin = this.pendingOrigins.get(event.workUnit.id) ?? event.workUnit.originClientId;
+    const realOrigin = this.pendingOrigins.get(event.workUnit.id);
     this.pendingOrigins.delete(event.workUnit.id);
 
-    const failed = event.workUnit.metadata['failed'] === true;
-    events.push(createDepartureToOrigin(
-      { ...event.workUnit, originClientId: realOrigin },
-      context,
-      failed,
-    ));
+    if (realOrigin) {
+      const failed = event.workUnit.metadata['failed'] === true;
+      events.push(createDepartureToOrigin(
+        { ...event.workUnit, originClientId: realOrigin },
+        context,
+        failed,
+      ));
+    }
+    // If no realOrigin, this is a stale duplicate (e.g., original response
+    // arriving after a retry reused the same work unit ID) — don't forward.
 
     // Dequeue next and send to downstream
     if (this.buffer.length > 0) {
