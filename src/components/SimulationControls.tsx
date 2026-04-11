@@ -228,14 +228,14 @@ export function SimulationControls() {
 
       {/* Config */}
       <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 12, color: '#8888aa' }}>End</span>
+        <span style={{ fontSize: 12, color: '#8888aa' }}>Duration (s)</span>
         <input
           className="sim-input"
           type="number"
           min={1}
           value={endTime}
           onChange={(e) => setEndTime(Number(e.target.value))}
-          style={{ width: 60 }}
+          style={{ width: 68 }}
           disabled={isRunning || isPaused}
         />
       </label>
