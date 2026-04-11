@@ -565,7 +565,7 @@ const timeoutCascade: Example = {
     name: 'Timeout Cascade at High Utilization',
     endTime: 60,
     metricsWindowSize: 1,
-    seed: 42,
+    seed: 1031691469,
     failureScenarios: [],
   },
 };
