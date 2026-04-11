@@ -229,9 +229,15 @@ export class Client implements SimComponent {
     const workUnit = _event.workUnit;
     const pattern = this.clientConfig.trafficPattern;
 
-    // Only process responses for work units we're currently tracking.
-    // Stale responses (e.g., from a pre-timeout original after retry) are dropped.
+    // Response for a work unit we're no longer tracking (e.g., timed out).
+    // Still record latency for observability — the server did complete the work —
+    // but don't modify tracking state (inFlightCount, completedCount) since the
+    // timeout already handled that.
     if (!this.pendingWorkUnits.has(workUnit.id)) {
+      if (!workUnit.metadata['failed']) {
+        const latency = context.currentTime - workUnit.createdAt;
+        context.recordMetric(this.id, 'latency', latency, context.currentTime);
+      }
       this.resolvedWorkUnits.delete(workUnit.id);
       return events;
     }

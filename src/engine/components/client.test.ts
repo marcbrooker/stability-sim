@@ -465,11 +465,17 @@ describe('Client component', () => {
       expect(retryEvent!.workUnit.retryCount).toBe(1);
 
       // Step 3: Stale response from original request arrives
+      const staleMetrics: { name: string; value: number }[] = [];
       const staleResponse = createDepartureEvent('client-1', originalWu, false, 1.5);
-      const staleResult = client.handleEvent(staleResponse, createMockContext({ currentTime: 1.5 }));
+      const staleResult = client.handleEvent(staleResponse, createMockContext({
+        currentTime: 1.5,
+        recordMetric: (_cid, name, value, _time) => staleMetrics.push({ name, value }),
+      }));
 
-      // Should be silently dropped (original ID is no longer pending)
+      // Should not generate any new events
       expect(staleResult.length).toBe(0);
+      // But should still record latency for observability
+      expect(staleMetrics.some(m => m.name === 'latency')).toBe(true);
 
       // Step 4: Retry's response arrives
       const retryResponse = createDepartureEvent('client-1', retryEvent!.workUnit, false, 2.0);
@@ -477,10 +483,8 @@ describe('Client component', () => {
 
       // inFlightCount should be exactly 0, not negative
       expect(client.getMetrics().inFlightCount).toBe(0);
-      // completedCount should be 1, not 2
+      // completedCount should be 1, not 2 (stale response doesn't increment)
       expect(client.getMetrics().completedCount).toBe(1);
-      // The stale response should not have generated any events
-      expect(staleResult.length).toBe(0);
       // The retry response may generate a next self-arrival (open-loop doesn't)
       expect(retryResult.length).toBe(0);
     });
@@ -524,6 +528,100 @@ describe('Client component', () => {
       // After all timeouts fired, metrics should be clean
       expect(client.getMetrics().completedCount).toBe(100);
       expect(client.getMetrics().inFlightCount).toBe(0);
+    });
+
+    it('records latency for late successful responses after timeout', () => {
+      // During a timeout cascade, the server still completes work — those
+      // completions should contribute to latency percentiles even though
+      // the client already timed them out.
+      const config: ClientConfig = {
+        trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
+        retryStrategy: { type: 'none' },
+        targetComponentId: 'server-1',
+        timeout: 1.0,
+      };
+      const client = new Client('client-1', config);
+      const scheduledEvents: SimEvent[] = [];
+      const ctx = createMockContext({
+        currentTime: 0,
+        random: () => 0.5,
+        scheduleEvent: (e: SimEvent) => scheduledEvents.push(e),
+      });
+
+      // Send a work unit
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, ctx);
+      const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+      // Timeout fires
+      const timeoutEvent: SimEvent = {
+        id: 'timeout-1', timestamp: 1.0, targetComponentId: 'client-1',
+        workUnit: { ...sentWu }, kind: 'timeout',
+      };
+      client.handleEvent(timeoutEvent, createMockContext({ currentTime: 1.0 }));
+      expect(client.getMetrics().timedOutCount).toBe(1);
+      expect(client.getMetrics().inFlightCount).toBe(0);
+
+      // Late successful response arrives at t=1.5
+      const recordedMetrics: { name: string; value: number }[] = [];
+      const lateResponse = createDepartureEvent('client-1', sentWu, false, 1.5);
+      const result = client.handleEvent(lateResponse, createMockContext({
+        currentTime: 1.5,
+        recordMetric: (_cid, name, value, _time) => recordedMetrics.push({ name, value }),
+      }));
+
+      // No events generated (no retries, not tracked)
+      expect(result.length).toBe(0);
+      // Latency IS recorded for observability
+      expect(recordedMetrics).toHaveLength(1);
+      expect(recordedMetrics[0].name).toBe('latency');
+      expect(recordedMetrics[0].value).toBe(1.5); // 1.5 - 0
+      // But completedCount is NOT incremented (timeout already counted this as failed)
+      expect(client.getMetrics().completedCount).toBe(0);
+      expect(client.getMetrics().inFlightCount).toBe(0);
+    });
+
+    it('does not record latency for late failed responses after timeout', () => {
+      const config: ClientConfig = {
+        trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
+        retryStrategy: { type: 'none' },
+        targetComponentId: 'server-1',
+        timeout: 1.0,
+      };
+      const client = new Client('client-1', config);
+      const scheduledEvents: SimEvent[] = [];
+      const ctx = createMockContext({
+        currentTime: 0,
+        random: () => 0.5,
+        scheduleEvent: (e: SimEvent) => scheduledEvents.push(e),
+      });
+
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, ctx);
+      const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+      // Timeout fires
+      const timeoutEvent: SimEvent = {
+        id: 'timeout-1', timestamp: 1.0, targetComponentId: 'client-1',
+        workUnit: { ...sentWu }, kind: 'timeout',
+      };
+      client.handleEvent(timeoutEvent, createMockContext({ currentTime: 1.0 }));
+
+      // Late FAILED response — no latency should be recorded
+      const recordedMetrics: { name: string; value: number }[] = [];
+      const lateResponse = createDepartureEvent('client-1', sentWu, true, 1.5);
+      client.handleEvent(lateResponse, createMockContext({
+        currentTime: 1.5,
+        recordMetric: (_cid, name, value, _time) => recordedMetrics.push({ name, value }),
+      }));
+
+      expect(recordedMetrics).toHaveLength(0);
     });
 
     it('drops responses for work units the client never sent', () => {
