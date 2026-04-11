@@ -534,13 +534,7 @@ function ServerConfigFields({
         label="Concurrency Limit"
         value={config.concurrencyLimit}
         onChange={(v) => update({ concurrencyLimit: v })}
-        info="Max requests processed simultaneously. Additional arrivals queue internally. Together with service time, determines max throughput: concurrency / mean_service_time."
-      />
-      <NumberField
-        label="Max Queue Size (0 = unbounded)"
-        value={config.maxQueueSize ?? 0}
-        onChange={(v) => update({ maxQueueSize: v > 0 ? v : undefined })}
-        info="Max requests waiting when all concurrency slots are busy. Arrivals beyond this are rejected as failures. 0 means unlimited queuing (risks unbounded latency growth)."
+        info="Max requests processed simultaneously. Arrivals beyond this are rejected — use an explicit Queue component upstream for buffering."
       />
       <div style={{ ...fieldStyle, fontSize: 11, color: '#6b6b8a' }}>
         ≈ {isFinite(approxTps) ? approxTps.toFixed(0) : '∞'} req/s max throughput
@@ -657,20 +651,50 @@ function QueueConfigFields({
   config: ComponentConfig & { type: 'queue' };
   update: (p: Record<string, unknown>) => void;
 }) {
+  const unlimited = config.maxCapacity === undefined;
+  const unlimitedConcurrency = config.maxConcurrency === undefined;
   return (
     <>
-      <NumberField
-        label="Max Capacity"
-        value={config.maxCapacity}
-        onChange={(v) => update({ maxCapacity: v })}
-        info="Maximum number of requests the queue can hold. Arrivals when the queue is full are rejected as failures. Larger queues absorb bursts but increase latency under sustained overload."
-      />
-      <NumberField
-        label="Load Shedding Threshold"
-        value={config.loadSheddingThreshold ?? config.maxCapacity}
-        onChange={(v) => update({ loadSheddingThreshold: v })}
-        info="Queue depth at which new arrivals start being rejected. Must be ≤ max capacity. Allows early rejection before the queue is completely full, reducing latency for accepted requests."
-      />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={unlimited}
+          onChange={(e) => update({ maxCapacity: e.target.checked ? undefined : 1000 })}
+        />
+        <span style={{ fontSize: 12 }}>Unlimited capacity</span>
+      </label>
+      {!unlimited && (
+        <>
+          <NumberField
+            label="Max Capacity"
+            value={config.maxCapacity!}
+            onChange={(v) => update({ maxCapacity: v })}
+            info="Maximum number of requests the queue can hold. Arrivals when the queue is full are rejected as failures. Larger queues absorb bursts but increase latency under sustained overload."
+          />
+          <NumberField
+            label="Load Shedding Threshold"
+            value={config.loadSheddingThreshold ?? config.maxCapacity!}
+            onChange={(v) => update({ loadSheddingThreshold: v })}
+            info="Queue depth at which new arrivals start being rejected. Must be ≤ max capacity. Allows early rejection before the queue is completely full, reducing latency for accepted requests."
+          />
+        </>
+      )}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={unlimitedConcurrency}
+          onChange={(e) => update({ maxConcurrency: e.target.checked ? undefined : 10 })}
+        />
+        <span style={{ fontSize: 12 }}>Unlimited concurrency</span>
+      </label>
+      {!unlimitedConcurrency && (
+        <NumberField
+          label="Max Concurrency"
+          value={config.maxConcurrency!}
+          onChange={(v) => update({ maxConcurrency: v })}
+          info="Max items sent to downstream concurrently. Match this to the downstream server's concurrency limit so the queue actually buffers. Excess arrivals wait in the queue."
+        />
+      )}
     </>
   );
 }

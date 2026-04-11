@@ -65,7 +65,10 @@ export class Queue implements SimComponent {
     const depth = this.buffer.length + this.inFlightCount;
 
     // Reject if at max capacity (Req 5.2, 5.3)
-    if (depth >= this.queueConfig.maxCapacity) {
+    if (
+      this.queueConfig.maxCapacity !== undefined &&
+      depth >= this.queueConfig.maxCapacity
+    ) {
       this.totalRejected++;
       return [createDepartureToOrigin(event.workUnit, context, true)];
     }
@@ -118,10 +121,19 @@ export class Queue implements SimComponent {
 
   /**
    * Dequeue the front item and send it as an arrival to the downstream component.
+   * Respects maxConcurrency: won't send if already at the in-flight limit.
    */
   private sendNextToDownstream(context: SimContext): SimEvent[] {
     const downstreamIds = context.getDownstream(this.id);
     if (downstreamIds.length === 0 || this.buffer.length === 0) {
+      return [];
+    }
+
+    // Respect concurrency limit
+    if (
+      this.queueConfig.maxConcurrency !== undefined &&
+      this.inFlightCount >= this.queueConfig.maxConcurrency
+    ) {
       return [];
     }
 

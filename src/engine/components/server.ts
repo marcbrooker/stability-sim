@@ -12,6 +12,9 @@ import { createDepartureToOrigin, sampleDistribution, applyLoadDependentLatency 
 /**
  * Server component: processes work units with configurable service time,
  * concurrency limits, load-dependent latency, and failure state handling.
+ *
+ * Has no internal queue — rejects arrivals when all concurrency slots are full.
+ * Use an explicit Queue component upstream for buffering.
  */
 export class Server implements SimComponent {
   readonly id: string;
@@ -22,7 +25,6 @@ export class Server implements SimComponent {
 
   // Concurrency tracking
   private activeCount: number = 0;
-  private waitQueue: SimEvent[] = [];
 
   // Failure states
   private crashed: boolean = false;
@@ -57,36 +59,19 @@ export class Server implements SimComponent {
     const effectiveLimit = this.getEffectiveConcurrencyLimit();
 
     if (this.activeCount >= effectiveLimit) {
-      if (
-        this.serverConfig.maxQueueSize !== undefined &&
-        this.waitQueue.length >= this.serverConfig.maxQueueSize
-      ) {
-        this.totalRejected++;
-        return [createDepartureToOrigin(event.workUnit, context, true)];
-      }
-      this.waitQueue.push(event);
-      return [];
+      this.totalRejected++;
+      return [createDepartureToOrigin(event.workUnit, context, true)];
     }
 
     return this.startProcessing(event.workUnit, context);
   }
 
   private handleDeparture(event: SimEvent, context: SimContext): SimEvent[] {
-    const events: SimEvent[] = [];
-
     this.activeCount--;
     this.tpsProcessed++;
     this.recordUtilization(context);
 
-    events.push(createDepartureToOrigin(event.workUnit, context, false));
-
-    const effectiveLimit = this.getEffectiveConcurrencyLimit();
-    if (this.waitQueue.length > 0 && this.activeCount < effectiveLimit) {
-      const next = this.waitQueue.shift()!;
-      events.push(...this.startProcessing(next.workUnit, context));
-    }
-
-    return events;
+    return [createDepartureToOrigin(event.workUnit, context, false)];
   }
 
   private startProcessing(workUnit: WorkUnit, context: SimContext): SimEvent[] {
@@ -142,7 +127,6 @@ export class Server implements SimComponent {
   getMetrics(): ComponentMetrics {
     return {
       activeCount: this.activeCount,
-      queueDepth: this.waitQueue.length,
       utilization: this.getUtilization(),
       tpsProcessed: this.tpsProcessed,
       totalRejected: this.totalRejected,
@@ -154,7 +138,6 @@ export class Server implements SimComponent {
 
   reset(): void {
     this.activeCount = 0;
-    this.waitQueue = [];
     this.crashed = false;
     this.latencySpikeMultiplier = 1;
     this.cpuReductionPercent = 0;

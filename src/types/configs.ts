@@ -39,7 +39,6 @@ export interface ServerConfig {
   serviceTimeDistribution: Distribution;
   concurrencyLimit: number;
   loadDependentLatency?: LoadDependentLatency;
-  maxQueueSize?: number; // if set, server rejects arrivals when internal queue is full
 }
 
 /** Database component configuration */
@@ -66,6 +65,7 @@ export interface LoadBalancerConfig {
 
 /** Queue component configuration */
 export interface QueueConfig {
-  maxCapacity: number;
+  maxCapacity?: number; // undefined = unlimited
+  maxConcurrency?: number; // max items in-flight to downstream; undefined = unlimited
   loadSheddingThreshold?: number; // must be <= maxCapacity
 }

@@ -11,7 +11,7 @@ interface SavedScenario {
 }
 
 export function SaveLoadButtons() {
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const { name, components, connections } = useArchitectureStore.getState();
     const simStore = useSimulationStore.getState();
     const config = simStore.simulationConfig;
@@ -32,12 +32,30 @@ export function SaveLoadButtons() {
       },
     };
 
+    const defaultName = scenario.architecture.name || 'scenario';
     const json = JSON.stringify(scenario, null, 2);
+
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> })
+          .showSaveFilePicker({
+            suggestedName: `${defaultName}.json`,
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+          });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        return;
+      } catch {
+        // User cancelled or API unavailable — fall through to legacy download
+      }
+    }
+
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${scenario.architecture.name || 'scenario'}.json`;
+    a.download = `${defaultName}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);

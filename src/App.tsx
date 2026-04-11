@@ -45,7 +45,7 @@ function defaultConfig(type: ComponentType): ComponentConfig {
     case 'server':
       return {
         type: 'server',
-        serviceTimeDistribution: { type: 'exponential', mean: 0.005 },
+        serviceTimeDistribution: { type: 'exponential', mean: 0.1 },
         concurrencyLimit: 10,
       };
     case 'database':
@@ -60,7 +60,7 @@ function defaultConfig(type: ComponentType): ComponentConfig {
     case 'load-balancer':
       return { type: 'load-balancer', strategy: 'round-robin' };
     case 'queue':
-      return { type: 'queue', maxCapacity: 1000 };
+      return { type: 'queue', maxConcurrency: 10 };
   }
 }
 
@@ -142,6 +142,11 @@ function FlowCanvas() {
       if (target.type === 'client') return;
       // Databases are terminal — can't be a source
       if (source.type === 'database') return;
+      // Queues support only one downstream
+      if (source.type === 'queue') {
+        const conns = useArchitectureStore.getState().connections;
+        if (conns.some((c) => c.sourceId === source.id)) return;
+      }
 
       addConnection({
         id: newId('conn'),

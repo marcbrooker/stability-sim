@@ -74,7 +74,6 @@ const componentConfigArb: fc.Arbitrary<ComponentConfig> = fc.oneof(
     serviceTimeDistribution: distributionArb,
     concurrencyLimit: fc.integer({ min: 1, max: 100 }),
     loadDependentLatency: fc.option(loadDependentLatencyArb, { nil: undefined }),
-    maxQueueSize: fc.option(fc.integer({ min: 1, max: 1000 }), { nil: undefined }),
   }),
   fc.record({
     type: fc.constant('database' as const),
@@ -94,7 +93,8 @@ const componentConfigArb: fc.Arbitrary<ComponentConfig> = fc.oneof(
   }),
   fc.record({
     type: fc.constant('queue' as const),
-    maxCapacity: fc.integer({ min: 1, max: 10000 }),
+    maxCapacity: fc.option(fc.integer({ min: 1, max: 10000 }), { nil: undefined }),
+    maxConcurrency: fc.option(fc.integer({ min: 1, max: 100 }), { nil: undefined }),
     loadSheddingThreshold: fc.option(fc.integer({ min: 1, max: 10000 }), { nil: undefined }),
   }),
 );

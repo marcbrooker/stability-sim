@@ -105,8 +105,8 @@ describe('Server component', () => {
     });
   });
 
-  describe('concurrency limit and queuing (Req 6.2, 6.3)', () => {
-    it('enqueues arrivals when at concurrency limit', () => {
+  describe('concurrency limit (Req 6.2, 6.3)', () => {
+    it('rejects arrivals when at concurrency limit', () => {
       const config: ServerConfig = {
         serviceTimeDistribution: { type: 'uniform', min: 1, max: 1 },
         concurrencyLimit: 1,
@@ -119,15 +119,15 @@ describe('Server component', () => {
       server.handleEvent(createArrival('srv-1', wu1), ctx);
       expect(ctx._scheduledEvents).toHaveLength(1);
 
-      // Second arrival: should be enqueued (no new scheduled event)
+      // Second arrival: should be rejected (no internal queue)
       const wu2 = { ...createWorkUnit(), id: 'wu-2' };
-      server.handleEvent(createArrival('srv-1', wu2), ctx);
-      expect(ctx._scheduledEvents).toHaveLength(1); // Still just 1
-
-      expect(server.getMetrics().queueDepth).toBe(1);
+      const result = server.handleEvent(createArrival('srv-1', wu2), ctx);
+      expect(result).toHaveLength(1);
+      expect(result[0].workUnit.metadata['failed']).toBe(true);
+      expect(server.getMetrics().totalRejected).toBe(1);
     });
 
-    it('dequeues next work unit when a departure frees a slot', () => {
+    it('accepts new arrivals after a departure frees a slot', () => {
       const config: ServerConfig = {
         serviceTimeDistribution: { type: 'uniform', min: 1, max: 1 },
         concurrencyLimit: 1,
@@ -139,18 +139,15 @@ describe('Server component', () => {
       const wu1 = { ...createWorkUnit(), id: 'wu-1' };
       server.handleEvent(createArrival('srv-1', wu1), ctx);
 
-      // Enqueue a second
-      const wu2 = { ...createWorkUnit(), id: 'wu-2' };
-      server.handleEvent(createArrival('srv-1', wu2), ctx);
-
       // Process departure of wu1
       const depCtx = createMockContext({ currentTime: 1 }) as SimContext & { _scheduledEvents: SimEvent[] };
-      const result = server.handleEvent(createDeparture('srv-1', wu1, 1), depCtx);
+      server.handleEvent(createDeparture('srv-1', wu1, 1), depCtx);
 
-      // Should return departure to client AND schedule processing of wu2
-      expect(result).toHaveLength(1); // departure to client
-      expect(depCtx._scheduledEvents).toHaveLength(1); // wu2 now being processed
-      expect(server.getMetrics().queueDepth).toBe(0);
+      // New arrival should be accepted
+      const wu2 = { ...createWorkUnit(), id: 'wu-2' };
+      const ctx2 = createMockContext({ currentTime: 1 }) as SimContext & { _scheduledEvents: SimEvent[] };
+      server.handleEvent(createArrival('srv-1', wu2), ctx2);
+      expect(ctx2._scheduledEvents).toHaveLength(1);
       expect(server.getMetrics().activeCount).toBe(1);
     });
   });
@@ -350,10 +347,11 @@ describe('Server component', () => {
       server.handleEvent(createArrival('srv-1', { ...createWorkUnit(), id: 'wu-2' }), ctx);
       expect(ctx._scheduledEvents).toHaveLength(2);
 
-      // Third arrival should be enqueued
-      server.handleEvent(createArrival('srv-1', { ...createWorkUnit(), id: 'wu-3' }), ctx);
-      expect(ctx._scheduledEvents).toHaveLength(2); // No new scheduled event
-      expect(server.getMetrics().queueDepth).toBe(1);
+      // Third arrival should be rejected (no internal queue)
+      const result = server.handleEvent(createArrival('srv-1', { ...createWorkUnit(), id: 'wu-3' }), ctx);
+      expect(result).toHaveLength(1);
+      expect(result[0].workUnit.metadata['failed']).toBe(true);
+      expect(server.getMetrics().totalRejected).toBe(1);
     });
 
     it('ensures effective concurrency is at least 1', () => {
@@ -375,7 +373,6 @@ describe('Server component', () => {
       const server = new Server('srv-1', basicConfig);
       const metrics = server.getMetrics();
       expect(metrics.activeCount).toBe(0);
-      expect(metrics.queueDepth).toBe(0);
       expect(metrics.utilization).toBe(0);
       expect(metrics.tpsProcessed).toBe(0);
       expect(metrics.totalRejected).toBe(0);
@@ -397,7 +394,6 @@ describe('Server component', () => {
 
       const metrics = server.getMetrics();
       expect(metrics.activeCount).toBe(0);
-      expect(metrics.queueDepth).toBe(0);
       expect(metrics.tpsProcessed).toBe(0);
       expect(metrics.totalRejected).toBe(0);
       expect(metrics.crashed).toBe(0);

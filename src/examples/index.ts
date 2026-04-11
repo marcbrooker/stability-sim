@@ -11,7 +11,7 @@ export interface Example {
 /**
  * Metastable Failure via Retry Amplification
  *
- * Topology: Client → Load Balancer → 2 Servers
+ * Topology: Client → Load Balancer → Queue → Server (×2)
  *
  * The client sends traffic at a rate that keeps both servers near 70% utilization.
  * At t=5 one server crashes for 2 seconds. During the outage the surviving server
@@ -47,41 +47,63 @@ const metastableRetry: Example = {
         id: 'lb-1',
         type: 'load-balancer',
         label: 'Load Balancer',
-        position: { x: 300, y: 200 },
+        position: { x: 250, y: 200 },
         config: {
           type: 'load-balancer',
           strategy: 'round-robin',
         },
       },
       {
+        id: 'queue-a',
+        type: 'queue',
+        label: 'Queue A',
+        position: { x: 450, y: 100 },
+        config: {
+          type: 'queue',
+          maxCapacity: 10000,
+          maxConcurrency: 5,
+        },
+      },
+      {
+        id: 'queue-b',
+        type: 'queue',
+        label: 'Queue B',
+        position: { x: 450, y: 300 },
+        config: {
+          type: 'queue',
+          maxCapacity: 10000,
+          maxConcurrency: 5,
+        },
+      },
+      {
         id: 'srv-1',
         type: 'server',
         label: 'Server A',
-        position: { x: 550, y: 100 },
+        position: { x: 650, y: 100 },
         config: {
           type: 'server',
           serviceTimeDistribution: { type: 'exponential', mean: 0.1 },
           concurrencyLimit: 5,
-          maxQueueSize: 10000,
         },
       },
       {
         id: 'srv-2',
         type: 'server',
         label: 'Server B',
-        position: { x: 550, y: 300 },
+        position: { x: 650, y: 300 },
         config: {
           type: 'server',
           serviceTimeDistribution: { type: 'exponential', mean: 0.1 },
           concurrencyLimit: 5,
-          maxQueueSize: 10000,
         },
       },
     ],
     connections: [
       { id: 'conn-1', sourceId: 'client-1', targetId: 'lb-1' },
-      { id: 'conn-2', sourceId: 'lb-1', targetId: 'srv-1' },
-      { id: 'conn-3', sourceId: 'lb-1', targetId: 'srv-2' },
+      { id: 'conn-2', sourceId: 'lb-1', targetId: 'queue-a' },
+      { id: 'conn-3', sourceId: 'lb-1', targetId: 'queue-b' },
+      { id: 'conn-4', sourceId: 'queue-a', targetId: 'srv-1' },
+      { id: 'conn-5', sourceId: 'queue-b', targetId: 'srv-2' },
     ],
   },
   simulationConfig: {
@@ -104,7 +126,7 @@ const metastableRetry: Example = {
 /**
  * GC Pressure / Capacity Death Spiral
  *
- * Topology: Client → Server
+ * Topology: Client → Queue → Server (with burst client)
  *
  * Models the Twitter GC case study from the metastable failures paper.
  * The server uses exponential load-dependent latency to model GC pauses:
@@ -134,7 +156,7 @@ const gcDeathSpiral: Example = {
           type: 'client',
           trafficPattern: { type: 'open-loop', meanArrivalRate: 80 },
           retryStrategy: { type: 'fixed-n', maxRetries: 3 },
-          targetComponentId: 'srv-1',
+          targetComponentId: 'queue-1',
           timeout: 1,
         },
       },
@@ -147,26 +169,37 @@ const gcDeathSpiral: Example = {
           type: 'client',
           trafficPattern: { type: 'burst', count: 100, atTime: 10 },
           retryStrategy: { type: 'none' },
-          targetComponentId: 'srv-1',
+          targetComponentId: 'queue-1',
+        },
+      },
+      {
+        id: 'queue-1',
+        type: 'queue',
+        label: 'Request Queue',
+        position: { x: 250, y: 200 },
+        config: {
+          type: 'queue',
+          maxCapacity: 200,
+          maxConcurrency: 10,
         },
       },
       {
         id: 'srv-1',
         type: 'server',
         label: 'App Server (GC-sensitive)',
-        position: { x: 400, y: 200 },
+        position: { x: 450, y: 200 },
         config: {
           type: 'server',
           serviceTimeDistribution: { type: 'exponential', mean: 0.008 },
           concurrencyLimit: 10,
-          maxQueueSize: 200,
           loadDependentLatency: { mode: 'exponential', factor: 4 },
         },
       },
     ],
     connections: [
-      { id: 'conn-1', sourceId: 'client-1', targetId: 'srv-1' },
-      { id: 'conn-2', sourceId: 'client-2', targetId: 'srv-1' },
+      { id: 'conn-1', sourceId: 'client-1', targetId: 'queue-1' },
+      { id: 'conn-2', sourceId: 'client-2', targetId: 'queue-1' },
+      { id: 'conn-3', sourceId: 'queue-1', targetId: 'srv-1' },
     ],
   },
   simulationConfig: {
@@ -182,15 +215,15 @@ const gcDeathSpiral: Example = {
 /**
  * Connection Pool Exhaustion
  *
- * Topology: Client → Server → Database
+ * Topology: Client → Queue → Server → Database
  *
  * The server proxies requests to a database with a limited connection pool.
  * A latency spike on the DB at t=8 causes connections to be held longer,
- * exhausting the pool. The server's internal queue fills as requests wait
- * for connections. Client timeouts trigger retries, adding more load.
- * Even after the DB latency spike ends at t=13, the backed-up server queue
- * keeps the DB at high utilization via load-dependent latency, and retries
- * sustain the overload — the pool never drains.
+ * exhausting the pool. The queue fills as requests wait for server capacity.
+ * Client timeouts trigger retries, adding more load. Even after the DB
+ * latency spike ends at t=13, the backed-up queue keeps the DB at high
+ * utilization via load-dependent latency, and retries sustain the overload
+ * — the pool never drains.
  */
 const connectionPoolExhaustion: Example = {
   id: 'connection-pool-exhaustion',
@@ -211,27 +244,37 @@ const connectionPoolExhaustion: Example = {
           type: 'client',
           trafficPattern: { type: 'open-loop', meanArrivalRate: 150 },
           retryStrategy: { type: 'fixed-n', maxRetries: 2 },
-          targetComponentId: 'srv-1',
+          targetComponentId: 'queue-1',
           timeout: 1.5,
+        },
+      },
+      {
+        id: 'queue-1',
+        type: 'queue',
+        label: 'Request Queue',
+        position: { x: 250, y: 200 },
+        config: {
+          type: 'queue',
+          maxCapacity: 500,
+          maxConcurrency: 50,
         },
       },
       {
         id: 'srv-1',
         type: 'server',
         label: 'App Server',
-        position: { x: 300, y: 200 },
+        position: { x: 450, y: 200 },
         config: {
           type: 'server',
           serviceTimeDistribution: { type: 'exponential', mean: 0.002 },
           concurrencyLimit: 50,
-          maxQueueSize: 500,
         },
       },
       {
         id: 'db-1',
         type: 'database',
         label: 'Database',
-        position: { x: 550, y: 200 },
+        position: { x: 650, y: 200 },
         config: {
           type: 'database',
           readLatencyDistribution: { type: 'exponential', mean: 0.005 },
@@ -242,8 +285,9 @@ const connectionPoolExhaustion: Example = {
       },
     ],
     connections: [
-      { id: 'conn-1', sourceId: 'client-1', targetId: 'srv-1' },
-      { id: 'conn-2', sourceId: 'srv-1', targetId: 'db-1' },
+      { id: 'conn-1', sourceId: 'client-1', targetId: 'queue-1' },
+      { id: 'conn-2', sourceId: 'queue-1', targetId: 'srv-1' },
+      { id: 'conn-3', sourceId: 'srv-1', targetId: 'db-1' },
     ],
   },
   simulationConfig: {
@@ -323,6 +367,7 @@ const cacheStampede: Example = {
         config: {
           type: 'queue',
           maxCapacity: 100,
+          maxConcurrency: 20,
           loadSheddingThreshold: 80,
         },
       },
@@ -451,10 +496,85 @@ const cacheFlush: Example = {
   },
 };
 
+/**
+ * Timeout Cascade at High Utilization
+ *
+ * Topology: Client → Queue → Server
+ *
+ * The client sends 100 req/s to a server with 10 concurrency slots and
+ * 0.1s mean (exponential) service time — exactly 100% theoretical capacity.
+ * Because exponential service times have high variance, the queue periodically
+ * builds up. With a 1-second client timeout, queued requests start timing out
+ * before they can be served, causing bursts of failures even though the server
+ * is never "down". The system oscillates between healthy and degraded states,
+ * demonstrating how operating near full utilization with variable latency
+ * creates intermittent unavailability without any explicit failure.
+ */
+const timeoutCascade: Example = {
+  id: 'timeout-cascade',
+  name: 'Timeout Cascade at High Utilization',
+  description:
+    'A server running at ~100% utilization with exponential service times causes periodic queue ' +
+    'buildup and client timeouts — intermittent unavailability with no explicit failure.',
+  architecture: {
+    schemaVersion: 1,
+    name: 'Timeout Cascade at High Utilization',
+    components: [
+      {
+        id: 'client-1',
+        type: 'client',
+        label: 'Client',
+        position: { x: 50, y: 200 },
+        config: {
+          type: 'client',
+          trafficPattern: { type: 'open-loop', meanArrivalRate: 100 },
+          retryStrategy: { type: 'none' },
+          targetComponentId: 'queue-1',
+          timeout: 1,
+        },
+      },
+      {
+        id: 'queue-1',
+        type: 'queue',
+        label: 'Request Queue',
+        position: { x: 250, y: 200 },
+        config: {
+          type: 'queue',
+          maxConcurrency: 10,
+        },
+      },
+      {
+        id: 'srv-1',
+        type: 'server',
+        label: 'Server',
+        position: { x: 450, y: 200 },
+        config: {
+          type: 'server',
+          serviceTimeDistribution: { type: 'exponential', mean: 0.1 },
+          concurrencyLimit: 10,
+        },
+      },
+    ],
+    connections: [
+      { id: 'conn-1', sourceId: 'client-1', targetId: 'queue-1' },
+      { id: 'conn-2', sourceId: 'queue-1', targetId: 'srv-1' },
+    ],
+  },
+  simulationConfig: {
+    schemaVersion: 1,
+    name: 'Timeout Cascade at High Utilization',
+    endTime: 60,
+    metricsWindowSize: 1,
+    seed: 42,
+    failureScenarios: [],
+  },
+};
+
 export const EXAMPLES: Example[] = [
   metastableRetry,
   gcDeathSpiral,
   connectionPoolExhaustion,
   cacheStampede,
   cacheFlush,
+  timeoutCascade,
 ];
