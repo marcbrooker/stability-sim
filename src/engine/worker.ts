@@ -108,8 +108,9 @@ function buildSnapshot(): MetricSnapshot {
     componentMetrics[comp.id] = comp.getMetrics() as Record<string, number>;
   }
 
-  // Compute latency percentiles over the full simulation window
-  const latencyPercentiles = metrics.getLatencyPercentiles(0, simTime);
+  // Compute latency percentiles over a trailing window
+  const LATENCY_WINDOW = 10; // seconds
+  const latencyPercentiles = metrics.getLatencyPercentiles(Math.max(0, simTime - LATENCY_WINDOW), simTime);
 
   // Aggregate completed/failed from client components
   let completedCount = 0;
