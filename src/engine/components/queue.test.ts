@@ -267,6 +267,32 @@ describe('Queue component', () => {
   });
 
   describe('stale departure handling (retry reuse)', () => {
+    it('maintains correct depth with many enqueue/dequeue cycles', () => {
+      // Regression: Array.shift() was O(n). Verify the head-pointer
+      // approach correctly tracks depth across many operations.
+      const config: QueueConfig = { maxCapacity: 1000, maxConcurrency: 1 };
+      const queue = new Queue('q-1', config);
+      const ctx = createMockContext();
+
+      // Enqueue 500 items with concurrency=1, so only 1 goes downstream
+      for (let i = 0; i < 500; i++) {
+        const wu = createWorkUnit(`wu-${i}`, 'client-1');
+        queue.handleEvent(createArrival('q-1', wu, i), ctx);
+      }
+      expect(queue.getMetrics().queueDepth).toBe(499); // 500 enqueued - 1 in-flight
+
+      // Process departures one by one — each dequeues the next item
+      for (let i = 0; i < 499; i++) {
+        const depWu = { ...createWorkUnit(`wu-${i}`, 'client-1'), originClientId: 'q-1' };
+        const depCtx = createMockContext({ currentTime: 500 + i });
+        queue.handleEvent(createDeparture('q-1', depWu, 500 + i, false), depCtx);
+      }
+
+      // All items dequeued: 1 still in-flight (the last one)
+      expect(queue.getMetrics().queueDepth).toBe(0);
+      expect(queue.getMetrics().totalDequeued).toBe(500);
+    });
+
     it('drops stale departure when work unit ID is reused by a retry', () => {
       const config: QueueConfig = { maxCapacity: 10, maxConcurrency: 1 };
       const queue = new Queue('q-1', config);

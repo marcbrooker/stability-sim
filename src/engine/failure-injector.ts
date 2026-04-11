@@ -64,6 +64,26 @@ export class FailureInjector {
     return this.disabledConnections.has(connectionId);
   }
 
+  /**
+   * Check whether traffic between two components is blocked by a network partition.
+   * Checks bidirectionally: a partition on connection A→B blocks both A→B and B→A traffic.
+   */
+  isPathBlocked(
+    sourceId: string,
+    targetId: string,
+    connectionById: Map<string, { sourceId: string; targetId: string }>,
+  ): boolean {
+    for (const connId of this.disabledConnections) {
+      const conn = connectionById.get(connId);
+      if (!conn) continue;
+      if ((conn.sourceId === sourceId && conn.targetId === targetId) ||
+          (conn.sourceId === targetId && conn.targetId === sourceId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Reset injector state */
   reset(): void {
     this.disabledConnections.clear();

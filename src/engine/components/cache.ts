@@ -12,6 +12,8 @@ interface CacheEntry {
   key: string;
   insertedAt: number;
   lastAccessedAt: number;
+  prev: CacheEntry | null;
+  next: CacheEntry | null;
 }
 
 /**
@@ -31,10 +33,11 @@ export class Cache implements SimComponent {
 
   private cacheConfig: CacheConfig;
 
-  // Key-based cache store: key → entry
+  // Key-based cache store: key → entry (entry is also an LRU list node)
   private store: Map<string, CacheEntry> = new Map();
-  // Insertion-order list for FIFO eviction
-  private insertionOrder: string[] = [];
+  // Doubly-linked list for O(1) LRU/FIFO eviction (head = oldest/LRU, tail = newest/MRU)
+  private lruHead: CacheEntry | null = null;
+  private lruTail: CacheEntry | null = null;
 
   // Track real origin for in-flight misses: workUnitId → real originClientId
   private pendingOrigins: Map<string, string> = new Map();
@@ -69,6 +72,11 @@ export class Cache implements SimComponent {
       if (entry && !this.isExpired(entry, context.currentTime)) {
         isHit = true;
         entry.lastAccessedAt = context.currentTime;
+        // Move to tail only for LRU — FIFO evicts by insertion order, not access order
+        if ((this.cacheConfig.evictionPolicy ?? 'lru') === 'lru') {
+          this.unlinkEntry(entry);
+          this.appendEntry(entry);
+        }
       } else {
         if (entry) this.removeKey(key);
         isHit = false;
@@ -149,6 +157,9 @@ export class Cache implements SimComponent {
       const entry = this.store.get(key)!;
       entry.insertedAt = currentTime;
       entry.lastAccessedAt = currentTime;
+      // Move to tail (most recently used/inserted)
+      this.unlinkEntry(entry);
+      this.appendEntry(entry);
       return;
     }
 
@@ -157,37 +168,55 @@ export class Cache implements SimComponent {
       this.evict();
     }
 
-    this.store.set(key, { key, insertedAt: currentTime, lastAccessedAt: currentTime });
-    this.insertionOrder.push(key);
+    const entry: CacheEntry = { key, insertedAt: currentTime, lastAccessedAt: currentTime, prev: null, next: null };
+    this.store.set(key, entry);
+    this.appendEntry(entry);
   }
 
+  /** O(1) eviction: remove the head of the list (oldest for FIFO, least-recently-used for LRU) */
   private evict(): void {
-    const policy = this.cacheConfig.evictionPolicy ?? 'lru';
-    if (policy === 'fifo') {
-      while (this.insertionOrder.length > 0) {
-        const oldest = this.insertionOrder.shift()!;
-        if (this.store.has(oldest)) {
-          this.store.delete(oldest);
-          return;
-        }
-      }
-    } else {
-      let lruKey: string | null = null;
-      let lruTime = Infinity;
-      for (const [k, entry] of this.store) {
-        if (entry.lastAccessedAt < lruTime) {
-          lruTime = entry.lastAccessedAt;
-          lruKey = k;
-        }
-      }
-      if (lruKey) {
-        this.store.delete(lruKey);
-      }
-    }
+    // Both FIFO and LRU evict the head: for FIFO it's the oldest insertion,
+    // for LRU it's the least-recently-accessed (moved to tail on access).
+    if (!this.lruHead) return;
+    const victim = this.lruHead;
+    this.unlinkEntry(victim);
+    this.store.delete(victim.key);
   }
 
   private removeKey(key: string): void {
-    this.store.delete(key);
+    const entry = this.store.get(key);
+    if (entry) {
+      this.unlinkEntry(entry);
+      this.store.delete(key);
+    }
+  }
+
+  /** Remove an entry from the doubly-linked list */
+  private unlinkEntry(entry: CacheEntry): void {
+    if (entry.prev) {
+      entry.prev.next = entry.next;
+    } else {
+      this.lruHead = entry.next;
+    }
+    if (entry.next) {
+      entry.next.prev = entry.prev;
+    } else {
+      this.lruTail = entry.prev;
+    }
+    entry.prev = null;
+    entry.next = null;
+  }
+
+  /** Append an entry at the tail of the list (most recently used) */
+  private appendEntry(entry: CacheEntry): void {
+    entry.prev = this.lruTail;
+    entry.next = null;
+    if (this.lruTail) {
+      this.lruTail.next = entry;
+    } else {
+      this.lruHead = entry;
+    }
+    this.lruTail = entry;
   }
 
   private createDepartureToOrigin(
@@ -232,13 +261,15 @@ export class Cache implements SimComponent {
     this.missCount = 0;
     this.totalRequests = 0;
     this.store.clear();
-    this.insertionOrder = [];
+    this.lruHead = null;
+    this.lruTail = null;
     this.pendingOrigins.clear();
   }
 
   /** Clear all cached entries (used by failure injector for cache-flush). */
   flush(): void {
     this.store.clear();
-    this.insertionOrder = [];
+    this.lruHead = null;
+    this.lruTail = null;
   }
 }

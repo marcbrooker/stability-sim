@@ -212,13 +212,22 @@ describe('Client component', () => {
         trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
         retryStrategy: { type: 'none' },
         targetComponentId: 'server-1',
+        timeout: 0,
       };
       const client = new Client('client-1', config);
-      const ctx = createMockContext({ currentTime: 1 });
+      const ctx = createMockContext({ currentTime: 0, random: () => 0.5 });
 
-      const wu = createWorkUnit('client-1', 0);
-      const departure = createDepartureEvent('client-1', wu, true, 1);
-      const events = client.handleEvent(departure, ctx);
+      // Send a work unit through the client to register it
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, ctx);
+      const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+      // Send failure response
+      const departure = createDepartureEvent('client-1', sentWu, true, 1);
+      const events = client.handleEvent(departure, createMockContext({ currentTime: 1 }));
 
       // No retry events
       expect(events.filter(e => e.targetComponentId === 'server-1').length).toBe(0);
@@ -231,15 +240,22 @@ describe('Client component', () => {
         trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
         retryStrategy: { type: 'fixed-n', maxRetries: 2 },
         targetComponentId: 'server-1',
+        timeout: 0,
       };
       const client = new Client('client-1', config);
-      const ctx = createMockContext({ currentTime: 1 });
+      const ctx = createMockContext({ currentTime: 0, random: () => 0.5 });
 
-      const wu = createWorkUnit('client-1', 0);
+      // Send a work unit through the client to register it
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, ctx);
+      const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
 
       // First failure → retry (retryCount becomes 1)
-      const dep1 = createDepartureEvent('client-1', wu, true, 1);
-      const events1 = client.handleEvent(dep1, ctx);
+      const dep1 = createDepartureEvent('client-1', sentWu, true, 1);
+      const events1 = client.handleEvent(dep1, createMockContext({ currentTime: 1 }));
       expect(events1.length).toBe(1);
       expect(events1[0].targetComponentId).toBe('server-1');
       expect(events1[0].workUnit.retryCount).toBe(1);
@@ -263,15 +279,24 @@ describe('Client component', () => {
         trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
         retryStrategy: { type: 'token-bucket', capacity: 2, depositAmount: 0.5 },
         targetComponentId: 'server-1',
+        timeout: 0,
       };
       const client = new Client('client-1', config);
+      const ctx = createMockContext({ currentTime: 0, random: () => 0.5 });
 
       // Initial tokens = capacity = 2
       expect(client.getMetrics().tokenBucketTokens).toBe(2);
 
+      // Send a work unit through the client to register it
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, ctx);
+      const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
       // Failure → retry, tokens = 1
-      const wu = createWorkUnit('client-1', 0);
-      const dep1 = createDepartureEvent('client-1', wu, true, 1);
+      const dep1 = createDepartureEvent('client-1', sentWu, true, 1);
       const events1 = client.handleEvent(dep1, createMockContext({ currentTime: 1 }));
       expect(events1.length).toBe(1);
       expect(client.getMetrics().tokenBucketTokens).toBe(1);
@@ -287,9 +312,16 @@ describe('Client component', () => {
       const events3 = client.handleEvent(dep3, createMockContext({ currentTime: 3 }));
       expect(events3.filter(e => e.targetComponentId === 'server-1').length).toBe(0);
 
+      // Send another work unit for the success case
+      const selfArrival2: SimEvent = {
+        id: 'ev-2', timestamp: 3.5, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 3.5), kind: 'arrival',
+      };
+      const sent2 = client.handleEvent(selfArrival2, createMockContext({ currentTime: 3.5, random: () => 0.5 }));
+      const sentWu2 = sent2.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
       // Success → deposit 0.5 tokens
-      const successWu = createWorkUnit('client-1', 0);
-      const depSuccess = createDepartureEvent('client-1', successWu, false, 4);
+      const depSuccess = createDepartureEvent('client-1', sentWu2, false, 4);
       client.handleEvent(depSuccess, createMockContext({ currentTime: 4 }));
       expect(client.getMetrics().tokenBucketTokens).toBe(0.5);
     });
@@ -319,17 +351,32 @@ describe('Client component', () => {
         trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
         retryStrategy: { type: 'circuit-breaker', windowSize: 10, failureThreshold: 0.6, maxRetries: 10 },
         targetComponentId: 'server-1',
+        timeout: 0,
       };
       const client = new Client('client-1', config);
+      const ctx = createMockContext({ currentTime: 0, random: () => 0.5 });
 
-      // Record 1 success first
-      const successWu = createWorkUnit('client-1', 0);
-      const depSuccess = createDepartureEvent('client-1', successWu, false, 0.5);
+      // Send first work unit through client, get a success response
+      const selfArrival1: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent1 = client.handleEvent(selfArrival1, ctx);
+      const sentWu1 = sent1.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+      const depSuccess = createDepartureEvent('client-1', sentWu1, false, 0.5);
       client.handleEvent(depSuccess, createMockContext({ currentTime: 0.5 }));
 
-      // Now a failure: window has 1 success + 1 failure = 50% < 60% → circuit closed → retry
-      const wu = createWorkUnit('client-1', 0);
-      const dep = createDepartureEvent('client-1', wu, true, 1);
+      // Send second work unit, get a failure response
+      const selfArrival2: SimEvent = {
+        id: 'ev-2', timestamp: 0.6, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0.6), kind: 'arrival',
+      };
+      const sent2 = client.handleEvent(selfArrival2, createMockContext({ currentTime: 0.6, random: () => 0.5 }));
+      const sentWu2 = sent2.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+      // Failure: window has 1 success + 1 failure = 50% < 60% → circuit closed → retry
+      const dep = createDepartureEvent('client-1', sentWu2, true, 1);
       const events = client.handleEvent(dep, createMockContext({ currentTime: 1 }));
       expect(events.filter(e => e.targetComponentId === 'server-1').length).toBe(1);
     });
@@ -341,24 +388,160 @@ describe('Client component', () => {
         trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
         retryStrategy: { type: 'none' },
         targetComponentId: 'server-1',
+        timeout: 0,
       };
       const client = new Client('client-1', config);
 
+      // Send a work unit through the client first to register it
+      const sendCtx = createMockContext({ currentTime: 2, random: () => 0.5 });
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 2, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 2), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, sendCtx);
+      const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+      // Now send the response back
       const recordedMetrics: { name: string; value: number }[] = [];
-      const ctx = createMockContext({
+      const responseCtx = createMockContext({
         currentTime: 5,
         recordMetric: (_cid, name, value, _time) => {
           recordedMetrics.push({ name, value });
         },
       });
 
-      const wu = createWorkUnit('client-1', 2); // created at t=2
-      const departure = createDepartureEvent('client-1', wu, false, 5);
-      client.handleEvent(departure, ctx);
+      const departure = createDepartureEvent('client-1', sentWu, false, 5);
+      client.handleEvent(departure, responseCtx);
 
       expect(recordedMetrics.length).toBe(1);
       expect(recordedMetrics[0].name).toBe('latency');
       expect(recordedMetrics[0].value).toBe(3); // 5 - 2
+    });
+  });
+
+  describe('timeout and retry correctness', () => {
+    it('does not double-count when stale response arrives after timeout+retry', () => {
+      // Regression: with old code, retries reused the same work unit ID.
+      // A stale response from the original request would be processed alongside
+      // the retry's response, causing inFlightCount to drift negative.
+      const config: ClientConfig = {
+        trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
+        retryStrategy: { type: 'fixed-n', maxRetries: 3 },
+        targetComponentId: 'server-1',
+        timeout: 1.0,
+      };
+      const client = new Client('client-1', config);
+      const scheduledEvents: SimEvent[] = [];
+      const ctx = createMockContext({
+        currentTime: 0,
+        random: () => 0.5,
+        scheduleEvent: (e: SimEvent) => scheduledEvents.push(e),
+      });
+
+      // Step 1: Client sends work unit X
+      const selfArrival: SimEvent = {
+        id: 'ev-1', timestamp: 0, targetComponentId: 'client-1',
+        workUnit: createWorkUnit('client-1', 0), kind: 'arrival',
+      };
+      const sent = client.handleEvent(selfArrival, ctx);
+      const originalWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+      expect(client.getMetrics().inFlightCount).toBe(1);
+
+      // Step 2: Timeout fires for original work unit
+      const timeoutEvent: SimEvent = {
+        id: 'timeout-1', timestamp: 1.0, targetComponentId: 'client-1',
+        workUnit: { ...originalWu }, kind: 'timeout',
+      };
+      scheduledEvents.length = 0;
+      const timeoutResult = client.handleEvent(timeoutEvent, createMockContext({
+        currentTime: 1.0,
+        scheduleEvent: (e: SimEvent) => scheduledEvents.push(e),
+      }));
+
+      // Should produce a retry with a NEW work unit ID
+      const retryEvent = timeoutResult.find(e => e.targetComponentId === 'server-1');
+      expect(retryEvent).toBeDefined();
+      expect(retryEvent!.workUnit.id).not.toBe(originalWu.id);
+      expect(retryEvent!.workUnit.retryCount).toBe(1);
+
+      // Step 3: Stale response from original request arrives
+      const staleResponse = createDepartureEvent('client-1', originalWu, false, 1.5);
+      const staleResult = client.handleEvent(staleResponse, createMockContext({ currentTime: 1.5 }));
+
+      // Should be silently dropped (original ID is no longer pending)
+      expect(staleResult.length).toBe(0);
+
+      // Step 4: Retry's response arrives
+      const retryResponse = createDepartureEvent('client-1', retryEvent!.workUnit, false, 2.0);
+      const retryResult = client.handleEvent(retryResponse, createMockContext({ currentTime: 2.0 }));
+
+      // inFlightCount should be exactly 0, not negative
+      expect(client.getMetrics().inFlightCount).toBe(0);
+      // completedCount should be 1, not 2
+      expect(client.getMetrics().completedCount).toBe(1);
+      // The stale response should not have generated any events
+      expect(staleResult.length).toBe(0);
+      // The retry response may generate a next self-arrival (open-loop doesn't)
+      expect(retryResult.length).toBe(0);
+    });
+
+    it('prunes resolvedWorkUnits when timeout fires for already-completed work', () => {
+      const config: ClientConfig = {
+        trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
+        retryStrategy: { type: 'none' },
+        targetComponentId: 'server-1',
+        timeout: 2.0,
+      };
+      const client = new Client('client-1', config);
+      const scheduledEvents: SimEvent[] = [];
+
+      // Send many work units, complete them, then let timeouts fire
+      for (let i = 0; i < 100; i++) {
+        const selfArrival: SimEvent = {
+          id: `ev-${i}`, timestamp: i * 0.01, targetComponentId: 'client-1',
+          workUnit: createWorkUnit('client-1', i * 0.01), kind: 'arrival',
+        };
+        const sent = client.handleEvent(selfArrival, createMockContext({
+          currentTime: i * 0.01,
+          random: () => 0.5,
+          scheduleEvent: (e: SimEvent) => scheduledEvents.push(e),
+        }));
+        const sentWu = sent.find(e => e.targetComponentId === 'server-1')!.workUnit;
+
+        // Complete immediately
+        const dep = createDepartureEvent('client-1', sentWu, false, i * 0.01 + 0.001);
+        client.handleEvent(dep, createMockContext({ currentTime: i * 0.01 + 0.001 }));
+      }
+
+      // Now fire all the timeout events — each should prune its entry
+      const timeoutEvents = scheduledEvents.filter(e => e.kind === 'timeout');
+      expect(timeoutEvents.length).toBe(100);
+
+      for (const te of timeoutEvents) {
+        client.handleEvent(te, createMockContext({ currentTime: te.timestamp }));
+      }
+
+      // After all timeouts fired, metrics should be clean
+      expect(client.getMetrics().completedCount).toBe(100);
+      expect(client.getMetrics().inFlightCount).toBe(0);
+    });
+
+    it('drops responses for work units the client never sent', () => {
+      const config: ClientConfig = {
+        trafficPattern: { type: 'open-loop', meanArrivalRate: 10 },
+        retryStrategy: { type: 'none' },
+        targetComponentId: 'server-1',
+      };
+      const client = new Client('client-1', config);
+
+      // Send a departure for a work unit the client never created
+      const unknownWu = createWorkUnit('client-1', 0);
+      const dep = createDepartureEvent('client-1', unknownWu, false, 1);
+      const events = client.handleEvent(dep, createMockContext({ currentTime: 1 }));
+
+      expect(events.length).toBe(0);
+      expect(client.getMetrics().completedCount).toBe(0);
+      expect(client.getMetrics().inFlightCount).toBe(0);
     });
   });
 

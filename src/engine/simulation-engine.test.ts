@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SimulationEngine } from './simulation-engine';
+import { FailureInjector } from './failure-injector';
 import type { SimComponent, SimContext, ComponentConfig } from '../types/components';
 import type { SimEvent, WorkUnit } from '../types/events';
 import type { ConnectionDefinition, SimulationConfig } from '../types/models';
+import type { FailureScenario } from '../types/failures';
 
 // --- Helpers ---
 
@@ -339,5 +341,233 @@ describe('SimulationEngine', () => {
     expect(engine.status).toBe('completed');
     engine.run(); // should be a no-op
     expect(engine.status).toBe('completed');
+  });
+
+  describe('network partition enforcement', () => {
+    it('drops events traversing a partitioned connection (forward direction)', () => {
+      // Regression: network-partition failures previously had no effect because
+      // isConnectionDisabled() was never checked during event dispatch.
+      const processedAtB: SimEvent[] = [];
+
+      const compA: SimComponent = {
+        id: 'comp-a',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(_event: SimEvent, context: SimContext) {
+          // comp-a forwards an arrival to comp-b
+          return [{
+            id: 'forwarded-1',
+            timestamp: context.currentTime,
+            targetComponentId: 'comp-b',
+            workUnit: _event.workUnit,
+            kind: 'arrival' as const,
+          }];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      const compB: SimComponent = {
+        id: 'comp-b',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(event: SimEvent) {
+          processedAtB.push(event);
+          return [];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      const connections: ConnectionDefinition[] = [
+        { id: 'conn-ab', sourceId: 'comp-a', targetId: 'comp-b' },
+      ];
+
+      const engine = new SimulationEngine([compA, compB], connections, defaultConfig);
+
+      // Set up failure injector with a network partition
+      const injector = new FailureInjector();
+      engine.setFailureInjector(injector);
+
+      const scenario: FailureScenario = {
+        type: 'network-partition',
+        connectionId: 'conn-ab',
+        triggerTime: 0,
+        duration: 50,
+      };
+      injector.scheduleFailures([scenario], (e) => engine.scheduleEvent(e));
+
+      // Schedule an arrival at comp-a at t=5 (during partition)
+      engine.scheduleEvent(makeEvent({ id: 'trigger', timestamp: 5, targetComponentId: 'comp-a' }));
+
+      engine.run();
+
+      // comp-a was dispatched but its forwarded event to comp-b was dropped
+      expect(processedAtB.length).toBe(0);
+    });
+
+    it('drops events traversing a partitioned connection (reverse direction)', () => {
+      const processedAtA: SimEvent[] = [];
+
+      const compA: SimComponent = {
+        id: 'comp-a',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(event: SimEvent) {
+          processedAtA.push(event);
+          return [];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      // comp-b sends a departure back to comp-a (reverse direction of the connection)
+      const compB: SimComponent = {
+        id: 'comp-b',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(_event: SimEvent, context: SimContext) {
+          return [{
+            id: 'response-1',
+            timestamp: context.currentTime,
+            targetComponentId: 'comp-a',
+            workUnit: _event.workUnit,
+            kind: 'departure' as const,
+          }];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      const connections: ConnectionDefinition[] = [
+        { id: 'conn-ab', sourceId: 'comp-a', targetId: 'comp-b' },
+      ];
+
+      const engine = new SimulationEngine([compA, compB], connections, defaultConfig);
+      const injector = new FailureInjector();
+      engine.setFailureInjector(injector);
+
+      injector.scheduleFailures([{
+        type: 'network-partition',
+        connectionId: 'conn-ab',
+        triggerTime: 0,
+        duration: 50,
+      }], (e) => engine.scheduleEvent(e));
+
+      // Send arrival to comp-b at t=5 — it will try to respond to comp-a
+      engine.scheduleEvent(makeEvent({ id: 'trigger', timestamp: 5, targetComponentId: 'comp-b' }));
+
+      engine.run();
+
+      // comp-b's response to comp-a should be dropped (reverse direction also blocked)
+      expect(processedAtA.length).toBe(0);
+    });
+
+    it('allows traffic after partition recovery', () => {
+      const processedAtB: SimEvent[] = [];
+
+      const compA: SimComponent = {
+        id: 'comp-a',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(_event: SimEvent, context: SimContext) {
+          return [{
+            id: `fwd-${_event.id}`,
+            timestamp: context.currentTime,
+            targetComponentId: 'comp-b',
+            workUnit: _event.workUnit,
+            kind: 'arrival' as const,
+          }];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      const compB: SimComponent = {
+        id: 'comp-b',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(event: SimEvent) {
+          processedAtB.push(event);
+          return [];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      const connections: ConnectionDefinition[] = [
+        { id: 'conn-ab', sourceId: 'comp-a', targetId: 'comp-b' },
+      ];
+
+      const engine = new SimulationEngine([compA, compB], connections, defaultConfig);
+      const injector = new FailureInjector();
+      engine.setFailureInjector(injector);
+
+      // Partition from t=0 to t=10
+      injector.scheduleFailures([{
+        type: 'network-partition',
+        connectionId: 'conn-ab',
+        triggerTime: 0,
+        duration: 10,
+      }], (e) => engine.scheduleEvent(e));
+
+      // Event during partition (should be dropped)
+      engine.scheduleEvent(makeEvent({ id: 'during', timestamp: 5, targetComponentId: 'comp-a' }));
+      // Event after recovery (should get through)
+      engine.scheduleEvent(makeEvent({ id: 'after', timestamp: 15, targetComponentId: 'comp-a' }));
+
+      engine.run();
+
+      // Only the post-recovery event should reach comp-b
+      expect(processedAtB.length).toBe(1);
+    });
+
+    it('does not affect self-targeted events during partition', () => {
+      let selfEventCount = 0;
+
+      const compA: SimComponent = {
+        id: 'comp-a',
+        type: 'server',
+        config: { type: 'server', serviceTimeDistribution: { type: 'uniform', min: 1, max: 2 }, concurrencyLimit: 10 } as ComponentConfig,
+        handleEvent(_event: SimEvent, context: SimContext) {
+          selfEventCount++;
+          if (_event.id === 'trigger') {
+            // Schedule a self-targeted event
+            return [{
+              id: 'self-event',
+              timestamp: context.currentTime + 1,
+              targetComponentId: 'comp-a',
+              workUnit: _event.workUnit,
+              kind: 'departure' as const,
+            }];
+          }
+          return [];
+        },
+        getMetrics: () => ({}),
+        reset: () => {},
+      };
+
+      const compB = makeStubComponent('comp-b');
+      const connections: ConnectionDefinition[] = [
+        { id: 'conn-ab', sourceId: 'comp-a', targetId: 'comp-b' },
+      ];
+
+      const engine = new SimulationEngine([compA, compB], connections, defaultConfig);
+      const injector = new FailureInjector();
+      engine.setFailureInjector(injector);
+
+      injector.scheduleFailures([{
+        type: 'network-partition',
+        connectionId: 'conn-ab',
+        triggerTime: 0,
+        duration: 50,
+      }], (e) => engine.scheduleEvent(e));
+
+      engine.scheduleEvent(makeEvent({ id: 'trigger', timestamp: 5, targetComponentId: 'comp-a' }));
+      engine.run();
+
+      // Both the trigger and self-event should be processed
+      expect(selfEventCount).toBe(2);
+    });
   });
 });

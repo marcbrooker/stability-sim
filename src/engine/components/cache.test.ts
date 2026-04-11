@@ -402,6 +402,48 @@ describe('Cache component', () => {
     });
   });
 
+  describe('LRU eviction at scale', () => {
+    it('correctly evicts LRU entry across many insert/access cycles', () => {
+      // Regression: LRU eviction previously scanned the entire store (O(n)).
+      // Now uses a doubly-linked list for O(1) eviction.
+      const config: CacheConfig = {
+        hitRate: 0, downstreamComponentId: 'server-1', ttl: 1000, maxSize: 100, evictionPolicy: 'lru',
+      };
+      const cache = new Cache('cache-1', config);
+
+      // Fill cache with 100 keys
+      for (let i = 0; i < 100; i++) {
+        const ctx = createMockContext({ currentTime: i });
+        const wu = createWorkUnit(`wu-${i}`, 'client-1', `key-${i}`);
+        cache.handleEvent(createArrival('cache-1', wu), ctx);
+        // Simulate downstream response to cache the key
+        cache.handleEvent(createDeparture('cache-1', { ...wu, originClientId: 'cache-1' }, i + 0.1, false), ctx);
+      }
+      expect(cache.getMetrics().cacheSize).toBe(100);
+
+      // Access key-0 (making it most recently used)
+      const ctxAccess = createMockContext({ currentTime: 200 });
+      cache.handleEvent(createArrival('cache-1', createWorkUnit('wu-access', 'client-1', 'key-0')), ctxAccess);
+
+      // Insert key-100 — should evict key-1 (LRU, since key-0 was just accessed)
+      const ctxInsert = createMockContext({ currentTime: 201 });
+      const wuNew = createWorkUnit('wu-new', 'client-1', 'key-100');
+      cache.handleEvent(createArrival('cache-1', wuNew), ctxInsert);
+      cache.handleEvent(createDeparture('cache-1', { ...wuNew, originClientId: 'cache-1' }, 201.1, false), ctxInsert);
+
+      expect(cache.getMetrics().cacheSize).toBe(100); // Still 100 (evicted 1, added 1)
+
+      // key-0 should still be cached (was accessed recently)
+      const ctxCheck0 = createMockContext({ currentTime: 202 });
+      const r0 = cache.handleEvent(createArrival('cache-1', createWorkUnit('check-0', 'client-1', 'key-0')), ctxCheck0);
+      expect(r0).toHaveLength(1); // hit
+
+      // key-1 should be evicted
+      const r1 = cache.handleEvent(createArrival('cache-1', createWorkUnit('check-1', 'client-1', 'key-1')), ctxCheck0);
+      expect(r1).toHaveLength(0); // miss
+    });
+  });
+
   describe('reset', () => {
     it('restores initial state including pending origins', () => {
       const config: CacheConfig = { hitRate: 0, downstreamComponentId: 'server-1', ttl: 10 };

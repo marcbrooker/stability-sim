@@ -42,7 +42,7 @@ export class Client implements SimComponent {
   private pendingWorkUnits: Set<string> = new Set();
 
   // Track work units that have already been resolved (by timeout or response).
-  // Periodically pruned to avoid unbounded growth.
+  // Pruned when the corresponding timeout fires (the last possible event for a given ID).
   private resolvedWorkUnits: Set<string> = new Set();
 
   // Track whether initial events have been generated (for start)
@@ -229,15 +229,20 @@ export class Client implements SimComponent {
     const workUnit = _event.workUnit;
     const pattern = this.clientConfig.trafficPattern;
 
-    // If this work unit was already resolved (e.g. by timeout), ignore the late response
-    const wasPending = this.pendingWorkUnits.has(workUnit.id);
-    if (wasPending && this.resolvedWorkUnits.has(workUnit.id)) {
+    // Only process responses for work units we're currently tracking.
+    // Stale responses (e.g., from a pre-timeout original after retry) are dropped.
+    if (!this.pendingWorkUnits.has(workUnit.id)) {
+      this.resolvedWorkUnits.delete(workUnit.id);
       return events;
     }
-    if (wasPending) {
-      this.resolvedWorkUnits.add(workUnit.id);
-      this.pendingWorkUnits.delete(workUnit.id);
+
+    // If this work unit was already resolved (e.g. by timeout), ignore the late response
+    if (this.resolvedWorkUnits.has(workUnit.id)) {
+      return events;
     }
+
+    this.resolvedWorkUnits.add(workUnit.id);
+    this.pendingWorkUnits.delete(workUnit.id);
 
     const isSuccess = !workUnit.metadata['failed'];
 
@@ -305,8 +310,10 @@ export class Client implements SimComponent {
     const events: SimEvent[] = [];
     const workUnit = event.workUnit;
 
-    // If the work unit already completed (response arrived before timeout), ignore
+    // If the work unit already completed (response arrived before timeout), ignore.
+    // The timeout is the last possible event for this ID, so prune from resolvedWorkUnits.
     if (this.resolvedWorkUnits.has(workUnit.id)) {
+      this.resolvedWorkUnits.delete(workUnit.id);
       return events;
     }
     this.resolvedWorkUnits.add(workUnit.id);
@@ -394,14 +401,20 @@ export class Client implements SimComponent {
    * Create retry events: send the work unit downstream again and schedule a timeout.
    */
   private createRetryEvents(workUnit: WorkUnit, context: SimContext): SimEvent[] {
-    // Clear resolved state so the retry's response will be processed
-    this.resolvedWorkUnits.delete(workUnit.id);
-    this.pendingWorkUnits.add(workUnit.id);
+    // Create a new work unit ID for the retry so that stale responses from the
+    // original (pre-timeout) request are correctly ignored. The new ID is tracked
+    // independently; the old ID remains in resolvedWorkUnits to catch its timeout.
+    const retryWorkUnit: WorkUnit = {
+      ...workUnit,
+      id: uuidv4(),
+    };
+    this.pendingWorkUnits.add(retryWorkUnit.id);
+
     const events: SimEvent[] = [{
       id: uuidv4(),
       timestamp: context.currentTime,
       targetComponentId: this.getTargetId(context),
-      workUnit,
+      workUnit: retryWorkUnit,
       kind: 'arrival' as EventKind,
     }];
 
@@ -412,7 +425,7 @@ export class Client implements SimComponent {
         id: uuidv4(),
         timestamp: context.currentTime + timeout,
         targetComponentId: this.id,
-        workUnit: { ...workUnit },
+        workUnit: { ...retryWorkUnit },
         kind: 'timeout' as EventKind,
       };
       context.scheduleEvent(timeoutEvent);

@@ -45,24 +45,32 @@ export class MetricCollector {
   /**
    * Compute latency percentiles (p50, p95, p99, p99.9) over a time window.
    *
-   * Filters latency entries within [windowStart, windowEnd], sorts them,
-   * and computes percentiles using nearest-rank method.
+   * Entries are appended chronologically (simulation clock is monotonic), so
+   * binary search locates the window boundaries. Entries before windowStart
+   * are pruned since the window only advances forward.
+   *
    * Returns all zeros for empty windows.
    */
   getLatencyPercentiles(windowStart: number, windowEnd: number): LatencyPercentiles {
-    // Filter entries within the window
-    const windowLatencies: number[] = [];
-    for (const entry of this.latencyEntries) {
-      if (entry.time >= windowStart && entry.time <= windowEnd) {
-        windowLatencies.push(entry.latency);
-      }
+    // Prune entries before the window — they'll never be in a future window
+    const pruneIdx = lowerBound(this.latencyEntries, windowStart);
+    if (pruneIdx > 0) {
+      this.latencyEntries = this.latencyEntries.slice(pruneIdx);
     }
 
-    if (windowLatencies.length === 0) {
+    // Find end of window in the (now pruned) array
+    const endIdx = upperBound(this.latencyEntries, windowEnd);
+
+    if (endIdx === 0) {
       return { p50: 0, p95: 0, p99: 0, p999: 0 };
     }
 
-    // Sort using native sort (O(n log n))
+    // Extract and sort latency values in the window
+    const windowLatencies = new Array<number>(endIdx);
+    for (let i = 0; i < endIdx; i++) {
+      windowLatencies[i] = this.latencyEntries[i].latency;
+    }
+
     sortArray(windowLatencies);
 
     return {
@@ -85,6 +93,32 @@ export class MetricCollector {
  */
 function sortArray(arr: number[]): void {
   arr.sort((a, b) => a - b);
+}
+
+/**
+ * Find the index of the first entry with time >= target (lower bound).
+ */
+function lowerBound(entries: LatencyEntry[], target: number): number {
+  let lo = 0, hi = entries.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (entries[mid].time < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * Find the index past the last entry with time <= target (upper bound).
+ */
+function upperBound(entries: LatencyEntry[], target: number): number {
+  let lo = 0, hi = entries.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (entries[mid].time <= target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /**

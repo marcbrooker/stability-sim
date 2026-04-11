@@ -113,6 +113,41 @@ describe('MetricCollector', () => {
     });
   });
 
+  // --- pruning and efficiency ---
+
+  describe('latency entry pruning', () => {
+    it('prunes entries before the window start', () => {
+      // Record 10000 entries spanning t=0 to t=99.99
+      for (let i = 0; i < 10000; i++) {
+        collector.recordLatency(i * 0.1, i * 0.01);
+      }
+
+      // Query a window near the end — should prune old entries
+      const p = collector.getLatencyPercentiles(90, 100);
+      expect(p.p50).toBeGreaterThan(0);
+
+      // After pruning, querying an earlier window returns empty
+      // (those entries were removed)
+      const p2 = collector.getLatencyPercentiles(0, 50);
+      expect(p2).toEqual({ p50: 0, p95: 0, p99: 0, p999: 0 });
+    });
+
+    it('keeps entries within and after the window', () => {
+      collector.recordLatency(10, 1.0);
+      collector.recordLatency(20, 5.0);
+      collector.recordLatency(30, 8.0);
+      collector.recordLatency(40, 12.0);
+
+      // Query [5, 10] — prunes entry at t=1.0
+      const p1 = collector.getLatencyPercentiles(5.0, 10.0);
+      expect(p1.p50).toBe(20); // entries at t=5.0 and t=8.0
+
+      // Query [8, 15] — entry at t=8.0 and t=12.0 should still be available
+      const p2 = collector.getLatencyPercentiles(8.0, 15.0);
+      expect(p2.p50).toBe(30);
+    });
+  });
+
   // --- reset() ---
 
   describe('reset()', () => {

@@ -28,6 +28,9 @@ export class SimulationEngine {
   /** Downstream connection map: componentId → downstream componentIds[] */
   private downstreamMap: Map<string, string[]>;
 
+  /** Connection definitions by ID, for network partition lookups */
+  private connectionById: Map<string, { sourceId: string; targetId: string }>;
+
   /** Metric collector instance */
   private metrics: MetricCollector;
 
@@ -51,6 +54,9 @@ export class SimulationEngine {
 
   /** Flag set by pause() to interrupt the run loop */
   private pauseRequested: boolean = false;
+
+  /** ID of the component currently being dispatched to (for partition checks) */
+  private currentDispatchId: string | null = null;
 
   /** Initial components for reset */
   private initialComponents: SimComponent[];
@@ -81,8 +87,9 @@ export class SimulationEngine {
       this.components.set(comp.id, comp);
     }
 
-    // Build downstream connection map
+    // Build downstream connection map and connection-by-ID lookup
     this.downstreamMap = new Map();
+    this.connectionById = new Map();
     for (const conn of connections) {
       const existing = this.downstreamMap.get(conn.sourceId);
       if (existing) {
@@ -90,6 +97,7 @@ export class SimulationEngine {
       } else {
         this.downstreamMap.set(conn.sourceId, [conn.targetId]);
       }
+      this.connectionById.set(conn.id, { sourceId: conn.sourceId, targetId: conn.targetId });
     }
   }
 
@@ -202,8 +210,9 @@ export class SimulationEngine {
       this.components.set(comp.id, comp);
     }
 
-    // Rebuild downstream map from initial connections
+    // Rebuild downstream map and connection lookup from initial connections
     this.downstreamMap.clear();
+    this.connectionById.clear();
     for (const conn of this.initialConnections) {
       const existing = this.downstreamMap.get(conn.sourceId);
       if (existing) {
@@ -211,6 +220,7 @@ export class SimulationEngine {
       } else {
         this.downstreamMap.set(conn.sourceId, [conn.targetId]);
       }
+      this.connectionById.set(conn.id, { sourceId: conn.sourceId, targetId: conn.targetId });
     }
   }
 
@@ -268,18 +278,36 @@ export class SimulationEngine {
       return false;
     }
 
+    // Track dispatching component for network partition checks in scheduleEvent
+    this.currentDispatchId = target.id;
+
     // Create context for this event dispatch
     const context = this.createContext();
 
     // Dispatch event to target component
     const newEvents = target.handleEvent(event, context);
 
-    // Req 1.2: insert returned events into the queue
+    // Req 1.2: insert returned events into the queue (checking for partitions)
     for (const newEvent of newEvents) {
-      this.eventQueue.insert(newEvent, newEvent.timestamp);
+      if (!this.isEventBlocked(target.id, newEvent)) {
+        this.eventQueue.insert(newEvent, newEvent.timestamp);
+      }
     }
 
+    this.currentDispatchId = null;
+
     return false;
+  }
+
+  /**
+   * Check whether an event is blocked by a network partition.
+   * Only checks events between different components that are connected.
+   */
+  private isEventBlocked(sourceId: string, event: SimEvent): boolean {
+    if (!this.failureInjector) return false;
+    const targetId = event.targetComponentId;
+    if (sourceId === targetId) return false;
+    return this.failureInjector.isPathBlocked(sourceId, targetId, this.connectionById);
   }
 
   /** Peek at the next event without removing it (for debugging) */
@@ -305,6 +333,9 @@ export class SimulationEngine {
         return engine._currentTime;
       },
       scheduleEvent(event: SimEvent): void {
+        if (engine.currentDispatchId && engine.isEventBlocked(engine.currentDispatchId, event)) {
+          return; // Dropped by network partition; client timeout handles failure detection
+        }
         engine.eventQueue.insert(event, event.timestamp);
       },
       getComponent(id: string): SimComponent {

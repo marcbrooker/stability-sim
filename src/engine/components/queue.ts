@@ -22,8 +22,9 @@ export class Queue implements SimComponent {
 
   private queueConfig: QueueConfig;
 
-  // FIFO buffer
+  // FIFO buffer with head pointer for O(1) amortized dequeue
   private buffer: SimEvent[] = [];
+  private bufferHead: number = 0;
 
   // Number of items currently in-flight to downstream
   private inFlightCount: number = 0;
@@ -61,8 +62,13 @@ export class Queue implements SimComponent {
    * Handle an arrival: reject if full or load-shedding threshold exceeded,
    * otherwise enqueue and forward to downstream if idle.
    */
+  /** Logical length of the FIFO buffer (excludes already-dequeued head elements) */
+  private get bufferLength(): number {
+    return this.buffer.length - this.bufferHead;
+  }
+
   private handleArrival(event: SimEvent, context: SimContext): SimEvent[] {
-    const depth = this.buffer.length + this.inFlightCount;
+    const depth = this.bufferLength + this.inFlightCount;
 
     // Reject if at max capacity (Req 5.2, 5.3)
     if (
@@ -116,7 +122,7 @@ export class Queue implements SimComponent {
     // arriving after a retry reused the same work unit ID) — don't forward.
 
     // Dequeue next and send to downstream
-    if (this.buffer.length > 0) {
+    if (this.bufferLength > 0) {
       events.push(...this.sendNextToDownstream(context));
     }
 
@@ -129,7 +135,7 @@ export class Queue implements SimComponent {
    */
   private sendNextToDownstream(context: SimContext): SimEvent[] {
     const downstreamIds = context.getDownstream(this.id);
-    if (downstreamIds.length === 0 || this.buffer.length === 0) {
+    if (downstreamIds.length === 0 || this.bufferLength === 0) {
       return [];
     }
 
@@ -141,7 +147,12 @@ export class Queue implements SimComponent {
       return [];
     }
 
-    const next = this.buffer.shift()!;
+    // O(1) dequeue via head pointer; compact when head passes halfway
+    const next = this.buffer[this.bufferHead++];
+    if (this.bufferHead > this.buffer.length / 2) {
+      this.buffer = this.buffer.slice(this.bufferHead);
+      this.bufferHead = 0;
+    }
     this.totalDequeued++;
     this.inFlightCount++;
     this.recordQueueDepth(context);
@@ -165,13 +176,13 @@ export class Queue implements SimComponent {
    * Record the current queue depth metric (Req 5.5).
    */
   private recordQueueDepth(context: SimContext): void {
-    context.recordMetric(this.id, 'queueDepth', this.buffer.length, context.currentTime);
+    context.recordMetric(this.id, 'queueDepth', this.bufferLength, context.currentTime);
   }
 
   /** Return current metrics snapshot */
   getMetrics(): ComponentMetrics {
     return {
-      queueDepth: this.buffer.length,
+      queueDepth: this.bufferLength,
       totalEnqueued: this.totalEnqueued,
       totalDequeued: this.totalDequeued,
       totalRejected: this.totalRejected,
@@ -181,6 +192,7 @@ export class Queue implements SimComponent {
   /** Reset component to initial state */
   reset(): void {
     this.buffer = [];
+    this.bufferHead = 0;
     this.inFlightCount = 0;
     this.pendingOrigins.clear();
     this.totalEnqueued = 0;
