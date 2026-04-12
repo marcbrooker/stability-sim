@@ -570,6 +570,204 @@ const timeoutCascade: Example = {
   },
 };
 
+/**
+ * Load Balancer Sinkholing
+ *
+ * Topology: Client → Load Balancer (least-connections) → [Server A, Server B, Server C]
+ *
+ * Three servers behind a least-connections load balancer, all comfortably below
+ * capacity. At t=8, Server A crashes. A crashed server rejects requests instantly
+ * (zero processing time), so its connection count drops to zero — making it appear
+ * to be the *most available* backend. The least-connections algorithm routes nearly
+ * all traffic to the crashed server, starving the two healthy servers of work.
+ * Goodput collapses despite 2/3 of capacity being perfectly healthy.
+ *
+ * This is the "sinkholing" pattern from Meta's link imbalance postmortem: the
+ * reliability feature (smart load balancing) becomes the sustaining effect.
+ * Token-bucket retries self-limit, preventing a full retry storm — but goodput
+ * stays low until the crash recovers at t=18.
+ */
+const lbSinkholing: Example = {
+  id: 'lb-sinkholing',
+  name: 'Load Balancer Sinkholing',
+  description:
+    'A crashed server rejects instantly, appearing "least loaded" to the LB. ' +
+    'Least-connections routing funnels traffic into the failed server, starving healthy ones.',
+  architecture: {
+    schemaVersion: 1,
+    name: 'Load Balancer Sinkholing',
+    components: [
+      {
+        id: 'client-1',
+        type: 'client',
+        label: 'Client',
+        position: { x: 50, y: 200 },
+        config: {
+          type: 'client',
+          trafficPattern: { type: 'open-loop', meanArrivalRate: 150 },
+          retryStrategy: { type: 'token-bucket', capacity: 10, depositAmount: 1 },
+          targetComponentId: 'lb-1',
+          timeout: 2,
+        },
+      },
+      {
+        id: 'lb-1',
+        type: 'load-balancer',
+        label: 'LB (least-conn)',
+        position: { x: 250, y: 200 },
+        config: {
+          type: 'load-balancer',
+          strategy: 'least-connections',
+        },
+      },
+      {
+        id: 'srv-a',
+        type: 'server',
+        label: 'Server A',
+        position: { x: 500, y: 80 },
+        config: {
+          type: 'server',
+          serviceTimeDistribution: { type: 'exponential', mean: 0.05 },
+          concurrencyLimit: 20,
+        },
+      },
+      {
+        id: 'srv-b',
+        type: 'server',
+        label: 'Server B',
+        position: { x: 500, y: 200 },
+        config: {
+          type: 'server',
+          serviceTimeDistribution: { type: 'exponential', mean: 0.05 },
+          concurrencyLimit: 20,
+        },
+      },
+      {
+        id: 'srv-c',
+        type: 'server',
+        label: 'Server C',
+        position: { x: 500, y: 320 },
+        config: {
+          type: 'server',
+          serviceTimeDistribution: { type: 'exponential', mean: 0.05 },
+          concurrencyLimit: 20,
+        },
+      },
+    ],
+    connections: [
+      { id: 'conn-1', sourceId: 'client-1', targetId: 'lb-1' },
+      { id: 'conn-2', sourceId: 'lb-1', targetId: 'srv-a' },
+      { id: 'conn-3', sourceId: 'lb-1', targetId: 'srv-b' },
+      { id: 'conn-4', sourceId: 'lb-1', targetId: 'srv-c' },
+    ],
+  },
+  simulationConfig: {
+    schemaVersion: 1,
+    name: 'Load Balancer Sinkholing',
+    endTime: 60,
+    metricsWindowSize: 1,
+    seed: 314159,
+    failureScenarios: [
+      {
+        type: 'server-crash',
+        targetId: 'srv-a',
+        triggerTime: 8,
+        recoveryTime: 18,
+      },
+    ],
+  },
+};
+
+/**
+ * Goodput Collapse (Stale Queue)
+ *
+ * Topology: Client → Queue → Server
+ *
+ * The client sends 80 req/s with a 1-second timeout to a server with 10
+ * concurrency slots and 0.08s mean service time (~64% utilization). The queue
+ * has no load-shedding threshold and no capacity limit. At t=8, a 50% CPU
+ * reduction halves the server's effective concurrency to 5 slots. The server
+ * can no longer keep up, and the unbounded queue absorbs the excess.
+ *
+ * By the time the CPU reduction ends at t=20, hundreds of stale items are
+ * queued. The server is healthy again and processes at full speed — but it is
+ * processing requests the client timed out on seconds ago. The server has high
+ * throughput and high utilization, yet the client sees zero completions. This
+ * is the "up but down" pattern: the system looks healthy from the server's
+ * perspective while delivering zero goodput to users.
+ *
+ * No retries are configured — this example isolates the stale-queue effect
+ * from retry amplification. Compare with load-shedding examples to see how
+ * dropping excess requests early prevents this failure mode.
+ */
+const goodputCollapse: Example = {
+  id: 'goodput-collapse',
+  name: 'Goodput Collapse (Stale Queue)',
+  description:
+    'A temporary CPU reduction fills an unbounded queue with stale requests. After recovery, ' +
+    'the server is busy processing expired work — high throughput but zero goodput.',
+  architecture: {
+    schemaVersion: 1,
+    name: 'Goodput Collapse (Stale Queue)',
+    components: [
+      {
+        id: 'client-1',
+        type: 'client',
+        label: 'Client',
+        position: { x: 50, y: 200 },
+        config: {
+          type: 'client',
+          trafficPattern: { type: 'open-loop', meanArrivalRate: 80 },
+          retryStrategy: { type: 'none' },
+          targetComponentId: 'queue-1',
+          timeout: 1,
+        },
+      },
+      {
+        id: 'queue-1',
+        type: 'queue',
+        label: 'Request Queue',
+        position: { x: 250, y: 200 },
+        config: {
+          type: 'queue',
+          maxConcurrency: 10,
+        },
+      },
+      {
+        id: 'srv-1',
+        type: 'server',
+        label: 'Server',
+        position: { x: 450, y: 200 },
+        config: {
+          type: 'server',
+          serviceTimeDistribution: { type: 'exponential', mean: 0.08 },
+          concurrencyLimit: 10,
+        },
+      },
+    ],
+    connections: [
+      { id: 'conn-1', sourceId: 'client-1', targetId: 'queue-1' },
+      { id: 'conn-2', sourceId: 'queue-1', targetId: 'srv-1' },
+    ],
+  },
+  simulationConfig: {
+    schemaVersion: 1,
+    name: 'Goodput Collapse (Stale Queue)',
+    endTime: 60,
+    metricsWindowSize: 1,
+    seed: 271828,
+    failureScenarios: [
+      {
+        type: 'cpu-reduction',
+        targetId: 'srv-1',
+        triggerTime: 8,
+        duration: 12,
+        reductionPercent: 50,
+      },
+    ],
+  },
+};
+
 export const EXAMPLES: Example[] = [
   metastableRetry,
   gcDeathSpiral,
@@ -577,4 +775,6 @@ export const EXAMPLES: Example[] = [
   cacheStampede,
   cacheFlush,
   timeoutCascade,
+  lbSinkholing,
+  goodputCollapse,
 ];
