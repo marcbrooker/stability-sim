@@ -246,7 +246,7 @@ export function SimulationControls() {
           type="number"
           value={seed}
           onChange={(e) => setSeed(Number(e.target.value))}
-          style={{ width: 68 }}
+          style={{ width: 100 }}
           disabled={isRunning || isPaused || randomSeed}
         />
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} title="Use a random seed each run">

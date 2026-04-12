@@ -109,14 +109,14 @@ export function FailureScenariosPanel() {
               key={i}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                background: '#2a2a4a', padding: '6px 10px', borderRadius: 6,
-                border: '1px solid #3a3a5a',
+                background: '#3a1a1a', padding: '7px 10px', borderRadius: 6,
+                border: '1px solid #6b3a3a',
               }}
             >
               <span style={{
-                fontSize: 11, lineHeight: 1, opacity: 0.5, marginRight: 2,
+                fontSize: 13, lineHeight: 1, marginRight: 2,
               }}>⚡</span>
-              <span style={{ flex: 1, color: '#c8c8d8', fontSize: 11 }}>{describeScenario(s, labelOf)}</span>
+              <span style={{ flex: 1, color: '#e8c8c8', fontSize: 12 }}>{describeScenario(s, labelOf)}</span>
               <button
                 className="sim-btn sim-btn-sm"
                 onClick={() => removeScenario(i)}
