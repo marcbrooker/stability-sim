@@ -685,29 +685,29 @@ const lbSinkholing: Example = {
  *
  * The client sends 90 req/s with a 1-second timeout to a server with 10
  * concurrency slots and 0.1s mean service time — 90% utilization, healthy but
- * near capacity. The queue has no load-shedding threshold and no capacity
- * limit. At t=8, a 50% CPU reduction halves the server's effective concurrency
- * to 5 slots. The server can now handle only ~50 req/s while 90 arrive —
- * the unbounded queue absorbs the excess at ~40 items/second.
+ * near capacity. The queue has no load-shedding and no capacity limit.
  *
- * By the time the CPU reduction ends at t=20, ~480 stale items are queued.
- * The server is healthy again but only has 10 req/s of excess capacity
- * (100 - 90). The queue takes ~48 seconds to drain — well past the end of
- * the simulation. During this entire period the server processes at full
- * speed, but every item it completes was queued far longer than the client's
- * 1-second timeout. The server has high throughput and high utilization, yet
- * the client sees zero completions. This is the "up but down" pattern.
+ * At t=8, a 3× latency spike hits the server for 8 seconds. Service time
+ * jumps to 0.3s mean, dropping throughput from ~100 to ~33 req/s. The server
+ * still ACCEPTS all 10 concurrent items (no rejections), they just take 3×
+ * longer to complete. The unbounded queue genuinely backs up at ~57 items/s.
  *
- * No retries are configured — this example isolates the stale-queue effect
- * from retry amplification. Compare with load-shedding examples to see how
- * dropping excess requests early prevents this failure mode.
+ * By t=16 when the spike ends, ~450 stale items are queued. The server
+ * recovers to full speed, but with only 10 req/s of excess capacity (100-90),
+ * the queue takes ~45 seconds to drain — well past the simulation end.
+ * During this entire period the server processes at full speed, but every
+ * item it completes was queued far longer than the client's 1-second timeout.
+ * High throughput, high utilization, zero goodput — "up but down."
+ *
+ * No retries are configured — this isolates the stale-queue effect from
+ * retry amplification. The 8-second trigger causes a 45+ second collapse.
  */
 const goodputCollapse: Example = {
   id: 'goodput-collapse',
   name: 'Goodput Collapse (Stale Queue)',
   description:
-    'A temporary CPU reduction fills an unbounded queue with stale requests. The server recovers ' +
-    'but only has 10% excess capacity — it takes 48s to drain the backlog of expired work.',
+    'An 8-second latency spike fills an unbounded queue with stale requests. The server recovers ' +
+    'but only has 10% headroom — the backlog takes 45s to drain, all expired work.',
   architecture: {
     schemaVersion: 1,
     name: 'Goodput Collapse (Stale Queue)',
@@ -760,11 +760,11 @@ const goodputCollapse: Example = {
     seed: 271828,
     failureScenarios: [
       {
-        type: 'cpu-reduction',
+        type: 'latency-spike',
         targetId: 'srv-1',
         triggerTime: 8,
-        duration: 12,
-        reductionPercent: 50,
+        duration: 8,
+        factor: 3,
       },
     ],
   },
