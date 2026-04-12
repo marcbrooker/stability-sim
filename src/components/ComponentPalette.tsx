@@ -17,7 +17,7 @@ const paletteItems: PaletteItem[] = [
 ];
 
 const containerStyle: React.CSSProperties = {
-  padding: 14,
+  padding: 12,
   display: 'flex',
   flexDirection: 'column',
   gap: 8,

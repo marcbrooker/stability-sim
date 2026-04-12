@@ -21,7 +21,8 @@ import { useArchitectureStore } from '../stores/architecture-store';
  * Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5
  */
 
-const COLORS = ['#2980b9', '#e74c3c', '#27ae60', '#f39c12', '#8e44ad', '#1abc9c'];
+// Matches the component palette colors from ComponentPalette.tsx
+const COLORS = ['#4a90d9', '#c0392b', '#27ae60', '#f39c12', '#8e44ad', '#e07b39'];
 
 /** Format X-axis time ticks as rounded integers */
 const formatTimeTick = (value: number) => Math.round(value).toString();
@@ -169,8 +170,8 @@ export function Dashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <strong style={{ color: '#fff', fontSize: 14 }}>Dashboard</strong>
-        <span style={{ fontSize: 12, opacity: 0.5 }}>
+        <strong style={{ color: '#fff', fontSize: 13 }}>Dashboard</strong>
+        <span style={{ fontSize: 11, color: '#8888aa' }}>
           t={currentTime.toFixed(2)}s | {speedMultiplier.toFixed(1)}× | {status}
         </span>
 
@@ -178,13 +179,12 @@ export function Dashboard() {
 
         {/* Metric selector */}
         <select
-          className="sim-select"
+          className="sim-select sim-btn-sm"
           value={pickComponent}
           onChange={(e) => {
             setPickComponent(e.target.value);
             setPickMetric('');
           }}
-          style={{ fontSize: 12 }}
         >
           <option value="">Component…</option>
           {Object.keys(availableMetrics).map((id) => (
@@ -194,10 +194,9 @@ export function Dashboard() {
           ))}
         </select>
         <select
-          className="sim-select"
+          className="sim-select sim-btn-sm"
           value={pickMetric}
           onChange={(e) => setPickMetric(e.target.value)}
-          style={{ fontSize: 12 }}
           disabled={!pickComponent}
         >
           <option value="">Metric…</option>
@@ -207,7 +206,7 @@ export function Dashboard() {
             </option>
           ))}
         </select>
-        <button className="sim-btn" onClick={addSelection} disabled={!pickComponent || !pickMetric} style={{ fontSize: 12, padding: '4px 10px' }}>
+        <button className="sim-btn sim-btn-sm" onClick={addSelection} disabled={!pickComponent || !pickMetric}>
           + Add
         </button>
 
@@ -234,12 +233,12 @@ export function Dashboard() {
       <div style={{ display: 'flex', flex: 1, gap: 8, minHeight: 140, flexWrap: 'wrap' }}>
         {/* Latency percentiles */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#c8c8d8' }}>Latency Percentiles</div>
+          <div className="dashboard-chart-title">Latency Percentiles</div>
           <ResponsiveContainer width="100%" height="85%">
             <LineChart data={latencyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" tick={{ fontSize: 9 }} tickFormatter={formatTimeTick} />
-              <YAxis tick={{ fontSize: 9 }} />
+              <XAxis dataKey="time" tick={{ fontSize: 10 }} tickFormatter={formatTimeTick} />
+              <YAxis tick={{ fontSize: 10 }} />
               <Tooltip />
               <Line type="linear" dataKey="p50" stroke="#2980b9" dot={false} strokeWidth={1.5} name="p50" />
               <Line type="linear" dataKey="p95" stroke="#f39c12" dot={false} strokeWidth={1.5} name="p95" />
@@ -250,12 +249,12 @@ export function Dashboard() {
 
         {/* Throughput */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#c8c8d8' }}>Throughput (req/s)</div>
+          <div className="dashboard-chart-title">Throughput (req/s)</div>
           <ResponsiveContainer width="100%" height="85%">
             <LineChart data={throughputData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" tick={{ fontSize: 9 }} tickFormatter={formatTimeTick} />
-              <YAxis tick={{ fontSize: 9 }} />
+              <XAxis dataKey="time" tick={{ fontSize: 10 }} tickFormatter={formatTimeTick} />
+              <YAxis tick={{ fontSize: 10 }} />
               <Tooltip />
               <Line type="linear" dataKey="completedPerSec" stroke="#27ae60" dot={false} strokeWidth={1.5} name="Completed/s" />
               <Line type="linear" dataKey="failedPerSec" stroke="#e74c3c" dot={false} strokeWidth={1.5} name="Failed/s" />
@@ -266,14 +265,14 @@ export function Dashboard() {
         {/* Custom metric selections — one pane per unit group */}
         {selectionGroups.map((group) => (
           <div key={group.metricName} style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#c8c8d8' }}>
+            <div className="dashboard-chart-title">
               {group.metricName}{isCumulativeMetric(group.metricName) ? ' (/s)' : ''}
             </div>
             <ResponsiveContainer width="100%" height="85%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" tick={{ fontSize: 9 }} tickFormatter={formatTimeTick} />
-                <YAxis tick={{ fontSize: 9 }} />
+                <XAxis dataKey="time" tick={{ fontSize: 10 }} tickFormatter={formatTimeTick} />
+                <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 {group.selections.map((sel) => (
                   <Line

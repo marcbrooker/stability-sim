@@ -3,13 +3,13 @@ import { useUIStore } from '../stores/ui-store';
 import type { ComponentConfig, ComponentDefinition, ConnectionDefinition } from '../types';
 
 const panelStyle: React.CSSProperties = {
-  padding: 14,
+  padding: 12,
   fontSize: 13,
   overflowY: 'auto',
 };
 
 const headerStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 700,
   marginBottom: 10,
   color: '#fff',
@@ -45,7 +45,7 @@ const selectStyle: React.CSSProperties = {
 
 const btnDanger: React.CSSProperties = {
   marginTop: 12,
-  padding: '7px 14px',
+  padding: '6px 14px',
   background: '#8b3a3a',
   color: '#fff',
   border: '1px solid #a04a4a',
@@ -451,11 +451,12 @@ function LoadDependentLatencyFields({
     <div style={{ border: '1px solid #3a3a5a', borderRadius: 6, padding: 8, marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: enabled ? 6 : 0 }}>
         <input
+          className="sim-checkbox"
           type="checkbox"
           checked={enabled}
           onChange={(e) => onChange(e.target.checked ? { mode: 'linear', factor: 1 } : undefined)}
         />
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#c8c8d8' }}>Load-Dependent Latency</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#c8c8d8' }}>Load-Dependent Latency</span>
       </div>
       {enabled && (
         <>
@@ -657,11 +658,12 @@ function QueueConfigFields({
     <>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, cursor: 'pointer' }}>
         <input
+          className="sim-checkbox"
           type="checkbox"
           checked={unlimited}
           onChange={(e) => update({ maxCapacity: e.target.checked ? undefined : 1000 })}
         />
-        <span style={{ fontSize: 12 }}>Unlimited capacity</span>
+        <span style={{ fontSize: 11, color: '#c8c8d8' }}>Unlimited capacity</span>
       </label>
       {!unlimited && (
         <>
@@ -681,11 +683,12 @@ function QueueConfigFields({
       )}
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, cursor: 'pointer' }}>
         <input
+          className="sim-checkbox"
           type="checkbox"
           checked={unlimitedConcurrency}
           onChange={(e) => update({ maxConcurrency: e.target.checked ? undefined : 10 })}
         />
-        <span style={{ fontSize: 12 }}>Unlimited concurrency</span>
+        <span style={{ fontSize: 11, color: '#c8c8d8' }}>Unlimited concurrency</span>
       </label>
       {!unlimitedConcurrency && (
         <NumberField

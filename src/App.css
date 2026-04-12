@@ -123,6 +123,10 @@
 .sim-btn-danger:hover:not(:disabled) {
   background: #a04a4a;
 }
+.sim-btn-sm {
+  font-size: 11px;
+  padding: 3px 10px;
+}
 
 .sim-input, .sim-select {
   padding: 5px 8px;
@@ -144,6 +148,35 @@
   font-weight: 600;
   color: #8888aa;
   margin-bottom: 3px;
+}
+
+/* ── Checkboxes ─────────────────────────────────────── */
+.sim-checkbox {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #3a3a5a;
+  border-radius: 3px;
+  background: #2a2a4a;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.sim-checkbox:checked {
+  background: #4a6fa5;
+  border-color: #5a7fb5;
+}
+.sim-checkbox:checked::after {
+  content: '✓';
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  line-height: 14px;
+  color: #fff;
+}
+.sim-checkbox:focus {
+  outline: none;
+  border-color: #5a7fb5;
 }
 
 /* ── Transport buttons (play/pause/etc) ──────────────── */
@@ -220,3 +253,33 @@
   background: #4a6fa5 !important;
   border-color: #5a8fc5 !important;
 }
+
+/* ── Example menu items ─────────────────────────────── */
+.example-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.example-item:hover {
+  background: #2a2a4a;
+}
+
+/* ── Dashboard chart section titles ─────────────────── */
+.dashboard-chart-title {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #c8c8d8;
+}
+
+/* ── Status indicator colors ────────────────────────── */
+.status-running { color: #4ade80; }
+.status-paused  { color: #fbbf24; }
+.status-idle    { color: #6b7280; }
+.status-completed { color: #6b7280; }

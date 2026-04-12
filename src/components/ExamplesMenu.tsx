@@ -88,24 +88,8 @@ function ExampleItem({
 }) {
   return (
     <button
+      className="example-item"
       onClick={() => onSelect(example)}
-      style={{
-        display: 'block',
-        width: '100%',
-        textAlign: 'left',
-        background: 'transparent',
-        border: 'none',
-        color: 'inherit',
-        padding: '8px 10px',
-        cursor: 'pointer',
-        borderRadius: 4,
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = '#2a2a4a';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-      }}
     >
       <div style={{ fontWeight: 600, fontSize: 13 }}>{example.name}</div>
       <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>

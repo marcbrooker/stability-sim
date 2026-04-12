@@ -211,7 +211,7 @@ export function SimulationControls() {
 
       {/* Speed */}
       <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontSize: 12, color: '#8888aa' }}>Speed</span>
+        <span style={{ fontSize: 11, color: '#8888aa' }}>Speed</span>
         <input
           type="range"
           min={0.1}
@@ -228,7 +228,7 @@ export function SimulationControls() {
 
       {/* Config */}
       <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 12, color: '#8888aa' }}>Duration (s)</span>
+        <span style={{ fontSize: 11, color: '#8888aa' }}>Duration (s)</span>
         <input
           className="sim-input"
           type="number"
@@ -240,7 +240,7 @@ export function SimulationControls() {
         />
       </label>
       <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 12, color: '#8888aa' }}>Seed</span>
+        <span style={{ fontSize: 11, color: '#8888aa' }}>Seed</span>
         <input
           className="sim-input"
           type="number"
@@ -249,8 +249,9 @@ export function SimulationControls() {
           style={{ width: 68 }}
           disabled={isRunning || isPaused || randomSeed}
         />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }} title="Use a random seed each run">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} title="Use a random seed each run">
           <input
+            className="sim-checkbox"
             type="checkbox"
             checked={randomSeed}
             onChange={(e) => setRandomSeed(e.target.checked)}
@@ -263,14 +264,9 @@ export function SimulationControls() {
       <span className="sep" />
 
       {/* Status */}
-      <span style={{ fontSize: 14 }}>
+      <span style={{ fontSize: 13 }}>
         t={currentTime.toFixed(2)}s{' '}
-        <span
-          style={{
-            fontWeight: 600,
-            color: isRunning ? '#4ade80' : isPaused ? '#fbbf24' : '#6b7280',
-          }}
-        >
+        <span className={`status-${status}`} style={{ fontWeight: 600 }}>
           {status}
         </span>
       </span>

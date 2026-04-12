@@ -116,15 +116,12 @@ export function FailureScenariosPanel() {
               <span style={{
                 fontSize: 11, lineHeight: 1, opacity: 0.5, marginRight: 2,
               }}>⚡</span>
-              <span style={{ flex: 1, color: '#c8c8d8', fontSize: 12 }}>{describeScenario(s, labelOf)}</span>
+              <span style={{ flex: 1, color: '#c8c8d8', fontSize: 11 }}>{describeScenario(s, labelOf)}</span>
               <button
+                className="sim-btn sim-btn-sm"
                 onClick={() => removeScenario(i)}
                 disabled={isRunning}
-                style={{
-                  fontSize: 10, padding: '2px 6px', background: 'none',
-                  border: '1px solid #3a3a5a', borderRadius: 4, cursor: 'pointer',
-                  color: '#6b6b8a',
-                }}
+                style={{ padding: '1px 6px', background: 'none' }}
                 title="Remove"
               >
                 ✕
@@ -137,6 +134,7 @@ export function FailureScenariosPanel() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
               <div style={{ display: 'flex', gap: 4 }}>
                 <select
+                  className="sim-select"
                   value={type}
                   onChange={(e) => {
                     setType(e.target.value as ScenarioType);
@@ -151,8 +149,9 @@ export function FailureScenariosPanel() {
               </div>
 
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <label style={{ minWidth: 44 }}>Target:</label>
+                <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Target:</label>
                 <select
+                  className="sim-select"
                   value={targetId || targetOptions[0]?.value || ''}
                   onChange={(e) => setTargetId(e.target.value)}
                   style={{ flex: 1 }}
@@ -167,49 +166,54 @@ export function FailureScenariosPanel() {
               </div>
 
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <label style={{ minWidth: 44 }}>At t=</label>
+                <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>At t=</label>
                 <input
+                  className="sim-input"
                   type="number" min={0} step={0.1} value={triggerTime}
                   onChange={(e) => setTriggerTime(Number(e.target.value))}
                   style={{ width: 56 }}
                 />
-                <label>for</label>
+                <label className="sim-label" style={{ marginBottom: 0 }}>for</label>
                 <input
+                  className="sim-input"
                   type="number" min={0.01} step={0.1} value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
                   style={{ width: 56 }}
                 />
-                <span>s</span>
+                <span style={{ fontSize: 11, color: '#8888aa' }}>s</span>
               </div>
 
               {type === 'latency-spike' && (
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <label style={{ minWidth: 44 }}>Factor:</label>
+                  <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Factor:</label>
                   <input
+                    className="sim-input"
                     type="number" min={1} step={1} value={factor}
                     onChange={(e) => setFactor(Number(e.target.value))}
                     style={{ width: 56 }}
                   />
-                  <span>× latency</span>
+                  <span style={{ fontSize: 11, color: '#8888aa' }}>× latency</span>
                 </div>
               )}
 
               {type === 'cpu-reduction' && (
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <label style={{ minWidth: 44 }}>Cut:</label>
+                  <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Cut:</label>
                   <input
+                    className="sim-input"
                     type="number" min={1} max={100} step={5} value={reductionPercent}
                     onChange={(e) => setReductionPercent(Number(e.target.value))}
                     style={{ width: 56 }}
                   />
-                  <span>%</span>
+                  <span style={{ fontSize: 11, color: '#8888aa' }}>%</span>
                 </div>
               )}
 
               <button
+                className="sim-btn sim-btn-sm"
                 onClick={handleAdd}
                 disabled={targetOptions.length === 0}
-                style={{ alignSelf: 'flex-start', padding: '2px 10px' }}
+                style={{ alignSelf: 'flex-start' }}
               >
                 + Add Failure
               </button>
