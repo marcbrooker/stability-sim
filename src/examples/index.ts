@@ -683,18 +683,20 @@ const lbSinkholing: Example = {
  *
  * Topology: Client → Queue → Server
  *
- * The client sends 80 req/s with a 1-second timeout to a server with 10
- * concurrency slots and 0.08s mean service time (~64% utilization). The queue
- * has no load-shedding threshold and no capacity limit. At t=8, a 50% CPU
- * reduction halves the server's effective concurrency to 5 slots. The server
- * can no longer keep up, and the unbounded queue absorbs the excess.
+ * The client sends 90 req/s with a 1-second timeout to a server with 10
+ * concurrency slots and 0.1s mean service time — 90% utilization, healthy but
+ * near capacity. The queue has no load-shedding threshold and no capacity
+ * limit. At t=8, a 50% CPU reduction halves the server's effective concurrency
+ * to 5 slots. The server can now handle only ~50 req/s while 90 arrive —
+ * the unbounded queue absorbs the excess at ~40 items/second.
  *
- * By the time the CPU reduction ends at t=20, hundreds of stale items are
- * queued. The server is healthy again and processes at full speed — but it is
- * processing requests the client timed out on seconds ago. The server has high
- * throughput and high utilization, yet the client sees zero completions. This
- * is the "up but down" pattern: the system looks healthy from the server's
- * perspective while delivering zero goodput to users.
+ * By the time the CPU reduction ends at t=20, ~480 stale items are queued.
+ * The server is healthy again but only has 10 req/s of excess capacity
+ * (100 - 90). The queue takes ~48 seconds to drain — well past the end of
+ * the simulation. During this entire period the server processes at full
+ * speed, but every item it completes was queued far longer than the client's
+ * 1-second timeout. The server has high throughput and high utilization, yet
+ * the client sees zero completions. This is the "up but down" pattern.
  *
  * No retries are configured — this example isolates the stale-queue effect
  * from retry amplification. Compare with load-shedding examples to see how
@@ -704,8 +706,8 @@ const goodputCollapse: Example = {
   id: 'goodput-collapse',
   name: 'Goodput Collapse (Stale Queue)',
   description:
-    'A temporary CPU reduction fills an unbounded queue with stale requests. After recovery, ' +
-    'the server is busy processing expired work — high throughput but zero goodput.',
+    'A temporary CPU reduction fills an unbounded queue with stale requests. The server recovers ' +
+    'but only has 10% excess capacity — it takes 48s to drain the backlog of expired work.',
   architecture: {
     schemaVersion: 1,
     name: 'Goodput Collapse (Stale Queue)',
@@ -717,7 +719,7 @@ const goodputCollapse: Example = {
         position: { x: 50, y: 200 },
         config: {
           type: 'client',
-          trafficPattern: { type: 'open-loop', meanArrivalRate: 80 },
+          trafficPattern: { type: 'open-loop', meanArrivalRate: 90 },
           retryStrategy: { type: 'none' },
           targetComponentId: 'queue-1',
           timeout: 1,
@@ -740,7 +742,7 @@ const goodputCollapse: Example = {
         position: { x: 450, y: 200 },
         config: {
           type: 'server',
-          serviceTimeDistribution: { type: 'exponential', mean: 0.08 },
+          serviceTimeDistribution: { type: 'exponential', mean: 0.1 },
           concurrencyLimit: 10,
         },
       },
