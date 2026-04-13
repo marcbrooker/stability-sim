@@ -76,6 +76,7 @@ export class StaticSiteStack extends cdk.Stack {
       destinationBucket: siteBucket,
       distribution,
       distributionPaths: ['/assets/*'],
+      prune: false,
       cacheControl: [
         s3deploy.CacheControl.maxAge(cdk.Duration.days(365)),
         s3deploy.CacheControl.setPublic(),
@@ -89,6 +90,7 @@ export class StaticSiteStack extends cdk.Stack {
       destinationBucket: siteBucket,
       distribution,
       distributionPaths: ['/index.html'],
+      prune: false,
       cacheControl: [
         s3deploy.CacheControl.noCache(),
       ],
