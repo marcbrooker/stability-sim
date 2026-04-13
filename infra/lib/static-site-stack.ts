@@ -72,7 +72,7 @@ export class StaticSiteStack extends cdk.Stack {
     // Deploy hashed assets (JS, CSS) with long-lived cache headers
     const distPath = path.join(__dirname, '..', '..', 'dist');
     new s3deploy.BucketDeployment(this, 'DeployAssets', {
-      sources: [s3deploy.Source.asset(distPath, { exclude: ['index.html'] })],
+      sources: [s3deploy.Source.asset(distPath, { exclude: ['index.html', 'favicon.svg'] })],
       destinationBucket: siteBucket,
       distribution,
       distributionPaths: ['/assets/*'],
@@ -89,16 +89,31 @@ export class StaticSiteStack extends cdk.Stack {
     // always uploaded even if CDK's content hash doesn't detect a change.
     new s3deploy.BucketDeployment(this, 'DeployHtml', {
       sources: [s3deploy.Source.asset(distPath, {
-        exclude: ['assets/*'],
+        exclude: ['assets/*', 'favicon.svg'],
         assetHash: `html-${Date.now()}`,
         assetHashType: cdk.AssetHashType.CUSTOM,
       })],
       destinationBucket: siteBucket,
       distribution,
-      distributionPaths: ['/index.html', '/favicon.svg'],
+      distributionPaths: ['/index.html'],
       prune: false,
       cacheControl: [
         s3deploy.CacheControl.noCache(),
+      ],
+    });
+
+    // Deploy favicon with 1-day cache
+    new s3deploy.BucketDeployment(this, 'DeployFavicon', {
+      sources: [s3deploy.Source.asset(distPath, {
+        exclude: ['*', '!favicon.svg'],
+      })],
+      destinationBucket: siteBucket,
+      distribution,
+      distributionPaths: ['/favicon.svg'],
+      prune: false,
+      cacheControl: [
+        s3deploy.CacheControl.maxAge(cdk.Duration.days(1)),
+        s3deploy.CacheControl.setPublic(),
       ],
     });
 
