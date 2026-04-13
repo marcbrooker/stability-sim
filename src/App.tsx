@@ -249,6 +249,12 @@ function App() {
           <SimulationControls />
           <span className="sep" />
           <SaveLoadButtons />
+          <span style={{ flex: 1 }} />
+          <span className="app-topbar-links">
+            made by <a href="https://brooker.co.za/blog/" target="_blank" rel="noopener noreferrer">Marc Brooker</a>
+            {' · '}
+            <a href="https://github.com/marcbrooker/stability-sim/" target="_blank" rel="noopener noreferrer">contribute on GitHub</a>
+          </span>
         </div>
         <div className="app-body">
           <div className="app-sidebar-left">

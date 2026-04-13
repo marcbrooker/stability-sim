@@ -29,6 +29,20 @@
   color: #fff;
 }
 
+.app-topbar-links {
+  font-size: 11px;
+  color: #8888aa;
+  white-space: nowrap;
+}
+.app-topbar-links a {
+  color: #7a9ec9;
+  text-decoration: none;
+}
+.app-topbar-links a:hover {
+  color: #a0c4e8;
+  text-decoration: underline;
+}
+
 .app-topbar .sep {
   width: 1px;
   height: 20px;
