@@ -69,12 +69,29 @@ export class StaticSiteStack extends cdk.Stack {
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
     });
 
-    // Deploy the built site to S3 and invalidate CloudFront
-    new s3deploy.BucketDeployment(this, 'DeploySite', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '..', '..', 'dist'))],
+    // Deploy hashed assets (JS, CSS) with long-lived cache headers
+    const distPath = path.join(__dirname, '..', '..', 'dist');
+    new s3deploy.BucketDeployment(this, 'DeployAssets', {
+      sources: [s3deploy.Source.asset(distPath, { exclude: ['index.html'] })],
       destinationBucket: siteBucket,
       distribution,
-      distributionPaths: ['/*'],
+      distributionPaths: ['/assets/*'],
+      cacheControl: [
+        s3deploy.CacheControl.maxAge(cdk.Duration.days(365)),
+        s3deploy.CacheControl.setPublic(),
+        s3deploy.CacheControl.immutable(),
+      ],
+    });
+
+    // Deploy index.html with revalidation (so new deploys take effect immediately)
+    new s3deploy.BucketDeployment(this, 'DeployHtml', {
+      sources: [s3deploy.Source.asset(distPath, { exclude: ['assets/*'] })],
+      destinationBucket: siteBucket,
+      distribution,
+      distributionPaths: ['/index.html'],
+      cacheControl: [
+        s3deploy.CacheControl.noCache(),
+      ],
     });
 
     // Outputs
