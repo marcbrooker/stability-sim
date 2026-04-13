@@ -6,7 +6,7 @@ const app = new cdk.App();
 
 new StaticSiteStack(app, 'StabilitySimSite', {
   env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
+    account: process.env.CDK_DEFAULT_ACCOUNT || '195880352761',
     region: 'us-east-1', // ACM certs for CloudFront must be in us-east-1
   },
 });
