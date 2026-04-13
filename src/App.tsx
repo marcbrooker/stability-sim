@@ -24,6 +24,7 @@ import { SimulationControls } from './components/SimulationControls';
 import { SaveLoadButtons } from './components/SaveLoadButtons';
 import { ExamplesMenu } from './components/ExamplesMenu';
 import { Dashboard } from './components/Dashboard';
+import { AboutDialog } from './components/AboutDialog';
 import type { ComponentConfig, ComponentType } from './types';
 
 /** Generate a simple unique id */
@@ -255,6 +256,7 @@ function App() {
             {' · '}
             <a href="https://github.com/marcbrooker/stability-sim/" target="_blank" rel="noopener noreferrer">contribute on GitHub</a>
           </span>
+          <AboutDialog />
         </div>
         <div className="app-body">
           <div className="app-sidebar-left">

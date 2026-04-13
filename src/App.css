@@ -268,6 +268,72 @@
   border-color: #5a8fc5 !important;
 }
 
+/* ── About dialog ───────────────────────────────────── */
+.about-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+}
+.about-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
+  background: #1e1e36;
+  border: 1px solid #3a3a5a;
+  border-radius: 10px;
+  padding: 24px 28px;
+  max-width: 520px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: #c8c8d8;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.about-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  color: #fff;
+  margin-bottom: 12px;
+}
+.about-dialog p {
+  margin: 0 0 12px;
+}
+.about-caveat {
+  color: #8888aa;
+  font-style: italic;
+}
+.about-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8888aa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 16px 0 6px;
+}
+.about-links {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+.about-links li {
+  padding: 4px 0;
+}
+.about-links a {
+  color: #7a9ec9;
+  text-decoration: none;
+}
+.about-links a:hover {
+  color: #a0c4e8;
+  text-decoration: underline;
+}
+
 /* ── Example menu items ─────────────────────────────── */
 .example-item {
   display: block;
