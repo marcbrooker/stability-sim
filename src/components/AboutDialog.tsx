@@ -32,6 +32,13 @@ export function AboutDialog() {
             <p className="about-caveat">
               This is an early experiment — the simulation models are intentionally
               simplified to build intuition, not to replace production load testing.
+              Service times are sampled at request arrival rather than varying during
+              execution, network latency between components is zero, and load-dependent
+              latency uses a configurable curve rather than modeling the underlying
+              mechanism (GC, lock contention, etc.). These simplifications mean the
+              simulator is good for understanding <em>which</em> feedback loops cause
+              metastable failures and <em>why</em> they self-sustain, but its quantitative
+              predictions — exact tipping points, recovery times — will be optimistic.
             </p>
 
             <div className="about-section-title">More to read</div>
