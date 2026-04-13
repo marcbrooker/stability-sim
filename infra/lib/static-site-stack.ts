@@ -84,9 +84,15 @@ export class StaticSiteStack extends cdk.Stack {
       ],
     });
 
-    // Deploy index.html with revalidation (so new deploys take effect immediately)
+    // Deploy index.html with revalidation (so new deploys take effect immediately).
+    // assetHash forces CDK to treat every deploy as new, ensuring index.html is
+    // always uploaded even if CDK's content hash doesn't detect a change.
     new s3deploy.BucketDeployment(this, 'DeployHtml', {
-      sources: [s3deploy.Source.asset(distPath, { exclude: ['assets/*'] })],
+      sources: [s3deploy.Source.asset(distPath, {
+        exclude: ['assets/*'],
+        assetHash: `html-${Date.now()}`,
+        assetHashType: cdk.AssetHashType.CUSTOM,
+      })],
       destinationBucket: siteBucket,
       distribution,
       distributionPaths: ['/index.html'],
