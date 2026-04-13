@@ -95,7 +95,7 @@ export class StaticSiteStack extends cdk.Stack {
       })],
       destinationBucket: siteBucket,
       distribution,
-      distributionPaths: ['/index.html'],
+      distributionPaths: ['/', '/index.html'],
       prune: false,
       cacheControl: [
         s3deploy.CacheControl.noCache(),
