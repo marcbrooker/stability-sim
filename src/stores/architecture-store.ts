@@ -9,6 +9,7 @@ interface ArchitectureState {
   addComponent: (component: ComponentDefinition) => void;
   removeComponent: (id: string) => void;
   updateComponentConfig: (id: string, config: ComponentConfig) => void;
+  updateComponentNotes: (id: string, notes: string) => void;
   addConnection: (connection: ConnectionDefinition) => void;
   removeConnection: (id: string) => void;
   setArchitecture: (name: string, components: ComponentDefinition[], connections: ConnectionDefinition[]) => void;
@@ -54,6 +55,13 @@ export const useArchitectureStore = create<ArchitectureState>((set) => ({
       }
       return { components };
     }),
+
+  updateComponentNotes: (id, notes) =>
+    set((state) => ({
+      components: state.components.map((c) =>
+        c.id === id ? { ...c, notes: notes || undefined } : c,
+      ),
+    })),
 
   addConnection: (connection) =>
     set((state) => {

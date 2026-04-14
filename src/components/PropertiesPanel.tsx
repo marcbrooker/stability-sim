@@ -60,6 +60,7 @@ export function PropertiesPanel() {
   const components = useArchitectureStore((s) => s.components);
   const connections = useArchitectureStore((s) => s.connections);
   const updateComponentConfig = useArchitectureStore((s) => s.updateComponentConfig);
+  const updateComponentNotes = useArchitectureStore((s) => s.updateComponentNotes);
   const removeComponent = useArchitectureStore((s) => s.removeComponent);
   const removeConnection = useArchitectureStore((s) => s.removeConnection);
   const selectComponent = useUIStore((s) => s.selectComponent);
@@ -72,6 +73,17 @@ export function PropertiesPanel() {
       <div style={panelStyle}>
         <div style={headerStyle}>{comp.label} ({comp.type})</div>
         <ComponentConfigEditor key={comp.id} component={comp} onUpdate={updateComponentConfig} />
+        <div style={fieldStyle}>
+          <span style={labelStyle}>Notes</span>
+          <textarea
+            className="sim-input"
+            value={comp.notes ?? ''}
+            onChange={(e) => updateComponentNotes(comp.id, e.target.value)}
+            placeholder="Add a note..."
+            rows={2}
+            style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        </div>
         <button
           style={btnDanger}
           onClick={() => {

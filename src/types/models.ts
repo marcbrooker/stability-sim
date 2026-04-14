@@ -8,6 +8,7 @@ export interface ComponentDefinition {
   label: string;
   position: { x: number; y: number };
   config: ComponentConfig;
+  notes?: string;
 }
 
 /** A directed connection between two components */

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -25,6 +25,8 @@ import { SaveLoadButtons } from './components/SaveLoadButtons';
 import { ExamplesMenu } from './components/ExamplesMenu';
 import { Dashboard } from './components/Dashboard';
 import { AboutDialog } from './components/AboutDialog';
+import { findExampleById } from './examples';
+import { loadExample } from './examples/load-example';
 import type { ComponentConfig, ComponentType } from './types';
 
 /** Generate a simple unique id */
@@ -94,7 +96,7 @@ function FlowCanvas() {
         id: c.id,
         type: c.type,
         position: c.position,
-        data: { label: c.label },
+        data: { label: c.label, notes: c.notes },
       })),
     [components],
   );
@@ -219,6 +221,16 @@ function App() {
   const dragging = useRef(false);
   const startY = useRef(0);
   const startH = useRef(0);
+
+  // Load example from URL query param on mount (e.g. ?example=metastable-retry)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const exampleId = params.get('example');
+    if (exampleId) {
+      const example = findExampleById(exampleId);
+      if (example) loadExample(example);
+    }
+  }, []);
 
   const onDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

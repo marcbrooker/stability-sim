@@ -31,6 +31,7 @@ export function SimNode({
   border,
 }: NodeProps & { emoji: string; defaultLabel: string; bg: string; border: string }) {
   const label = (data as { label?: string }).label ?? defaultLabel;
+  const notes = (data as { notes?: string }).notes;
 
   const onDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -84,6 +85,11 @@ export function SimNode({
         ⧉
       </button>
       <div>{emoji} {label}</div>
+      {notes && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3, lineHeight: 1.3 }}>
+          {notes.length > 60 ? notes.slice(0, 57) + '...' : notes}
+        </div>
+      )}
       <Handle type="source" position={Position.Right} />
       <Handle type="target" position={Position.Left} />
     </div>
