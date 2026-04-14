@@ -1,8 +1,6 @@
 import { useCallback, useState } from 'react';
 import { EXAMPLES } from '../examples';
-import { useArchitectureStore } from '../stores/architecture-store';
-import { useSimulationStore } from '../stores/simulation-store';
-import { useMetricsStore } from '../stores/metrics-store';
+import { loadExample } from '../examples/load-example';
 import type { Example } from '../examples';
 
 /**
@@ -13,33 +11,8 @@ import type { Example } from '../examples';
 export function ExamplesMenu() {
   const [open, setOpen] = useState(false);
 
-  const loadExample = useCallback((example: Example) => {
-    const arch = example.architecture;
-    const config = example.simulationConfig;
-
-    // Reset simulation state
-    useSimulationStore.getState().setStatus('idle');
-    useSimulationStore.getState().setCurrentTime(0);
-    // Store the config with empty failureScenarios — scenarios go into the store instead
-    useSimulationStore.getState().setSimulationConfig({
-      ...config,
-      failureScenarios: [],
-    });
-    useSimulationStore.getState().clearFailureScenarios();
-    useMetricsStore.getState().reset();
-
-    // Load failure scenarios from the example config into the store
-    for (const scenario of config.failureScenarios) {
-      useSimulationStore.getState().addFailureScenario(scenario);
-    }
-
-    // Load architecture
-    useArchitectureStore.getState().setArchitecture(
-      arch.name,
-      arch.components,
-      arch.connections,
-    );
-
+  const handleSelect = useCallback((example: Example) => {
+    loadExample(example);
     setOpen(false);
   }, []);
 
@@ -70,7 +43,7 @@ export function ExamplesMenu() {
             }}
           >
             {EXAMPLES.map((ex) => (
-              <ExampleItem key={ex.id} example={ex} onSelect={loadExample} />
+              <ExampleItem key={ex.id} example={ex} onSelect={handleSelect} />
             ))}
           </div>
         </>

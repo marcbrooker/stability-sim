@@ -770,6 +770,11 @@ const goodputCollapse: Example = {
   },
 };
 
+/** Find an example by its id, or undefined if not found */
+export function findExampleById(id: string): Example | undefined {
+  return EXAMPLES.find((ex) => ex.id === id);
+}
+
 export const EXAMPLES: Example[] = [
   metastableRetry,
   gcDeathSpiral,
