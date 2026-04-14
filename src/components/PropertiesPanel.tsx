@@ -384,6 +384,52 @@ function ClientConfigFields({
           update({ retryStrategy: defaults[v] });
         }}
       />
+      {config.retryStrategy.type === 'fixed-n' && (
+        <NumberField
+          label="Max Retries"
+          value={config.retryStrategy.maxRetries}
+          onChange={(v) => update({ retryStrategy: { ...config.retryStrategy, maxRetries: v } })}
+          info="Maximum number of retry attempts per request. After this many failures the request is dropped."
+        />
+      )}
+      {config.retryStrategy.type === 'token-bucket' && (
+        <>
+          <NumberField
+            label="Bucket Capacity"
+            value={config.retryStrategy.capacity}
+            onChange={(v) => update({ retryStrategy: { ...config.retryStrategy, capacity: v } })}
+            info="Maximum number of retry tokens. The bucket starts full. Each retry consumes one token. When empty, no retries are allowed."
+          />
+          <NumberField
+            label="Deposit per Success"
+            value={config.retryStrategy.depositAmount}
+            onChange={(v) => update({ retryStrategy: { ...config.retryStrategy, depositAmount: v } })}
+            info="Tokens added to the bucket on each successful response. Controls how quickly retry capacity recovers after a failure."
+          />
+        </>
+      )}
+      {config.retryStrategy.type === 'circuit-breaker' && (
+        <>
+          <NumberField
+            label="Max Retries"
+            value={config.retryStrategy.maxRetries}
+            onChange={(v) => update({ retryStrategy: { ...config.retryStrategy, maxRetries: v } })}
+            info="Maximum retries per request while the circuit is closed."
+          />
+          <NumberField
+            label="Window Size (s)"
+            value={config.retryStrategy.windowSize}
+            onChange={(v) => update({ retryStrategy: { ...config.retryStrategy, windowSize: v } })}
+            info="Sliding window duration for measuring failure rate. Only events within this window count toward the threshold."
+          />
+          <NumberField
+            label="Failure Threshold (0-1)"
+            value={config.retryStrategy.failureThreshold}
+            onChange={(v) => update({ retryStrategy: { ...config.retryStrategy, failureThreshold: v } })}
+            info="Failure rate (0-1) that opens the circuit. When the rate in the sliding window exceeds this, all retries are blocked."
+          />
+        </>
+      )}
       <NumberField
         label="Timeout (s)"
         value={config.timeout ?? 1}
