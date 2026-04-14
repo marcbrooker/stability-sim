@@ -5,6 +5,7 @@ import type { FailureScenario } from '../types/failures';
 import { Server } from './components/server';
 import { Database } from './components/database';
 import { Cache } from './components/cache';
+import { LoadBalancer } from './components/load-balancer';
 
 /**
  * Failure injector: converts FailureScenarios into timed SimEvents
@@ -164,6 +165,8 @@ export class FailureInjector {
         return { connectionId: scenario.connectionId, duration: scenario.duration };
       case 'cache-flush':
         return { targetId: scenario.targetId };
+      case 'random-error':
+        return { targetId: scenario.targetId, errorRate: scenario.errorRate, duration: scenario.duration };
     }
   }
 
@@ -209,6 +212,15 @@ export class FailureInjector {
         }
         break;
       }
+      case 'random-error': {
+        const comp = components.get(metadata.targetId as string);
+        if (comp && comp instanceof Server) {
+          comp.setErrorRate(metadata.errorRate as number);
+        } else if (comp && comp instanceof LoadBalancer) {
+          comp.setErrorRate(metadata.errorRate as number);
+        }
+        break;
+      }
     }
   }
 
@@ -245,6 +257,15 @@ export class FailureInjector {
       }
       case 'network-partition': {
         this.disabledConnections.delete(metadata.connectionId as string);
+        break;
+      }
+      case 'random-error': {
+        const comp = components.get(metadata.targetId as string);
+        if (comp && comp instanceof Server) {
+          comp.setErrorRate(0);
+        } else if (comp && comp instanceof LoadBalancer) {
+          comp.setErrorRate(0);
+        }
         break;
       }
     }

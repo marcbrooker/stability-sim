@@ -11,6 +11,7 @@ const SCENARIO_LABELS: Record<ScenarioType, string> = {
   'cpu-reduction': 'CPU Reduction',
   'network-partition': 'Network Partition',
   'cache-flush': 'Cache Flush',
+  'random-error': 'Random Error',
 };
 
 function describeScenario(
@@ -28,6 +29,8 @@ function describeScenario(
       return `Partition ${s.connectionId} at t=${s.triggerTime} for ${s.duration}s`;
     case 'cache-flush':
       return `Flush ${labelOf(s.targetId)} at t=${s.triggerTime}`;
+    case 'random-error':
+      return `${(s.errorRate * 100).toFixed(0)}% errors on ${labelOf(s.targetId)} at t=${s.triggerTime} for ${s.duration}s`;
   }
 }
 
@@ -46,6 +49,7 @@ export function FailureScenariosPanel() {
   const [duration, setDuration] = useState(1);
   const [factor, setFactor] = useState(10);
   const [reductionPercent, setReductionPercent] = useState(50);
+  const [errorRate, setErrorRate] = useState(0.1);
   const [expanded, setExpanded] = useState(true);
 
   const isRunning = status === 'running' || status === 'paused';
@@ -59,13 +63,18 @@ export function FailureScenariosPanel() {
   const serverComponents = components.filter(
     (c) => c.type === 'server' || c.type === 'database',
   );
+  const serverAndLbComponents = components.filter(
+    (c) => c.type === 'server' || c.type === 'load-balancer',
+  );
   const cacheComponents = components.filter((c) => c.type === 'cache');
   const targetOptions =
     type === 'network-partition'
       ? connections.map((c) => ({ value: c.id, label: `${c.sourceId} → ${c.targetId}` }))
       : type === 'cache-flush'
         ? cacheComponents.map((c) => ({ value: c.id, label: c.label || c.id }))
-        : serverComponents.map((c) => ({ value: c.id, label: c.label || c.id }));
+        : type === 'random-error'
+          ? serverAndLbComponents.map((c) => ({ value: c.id, label: c.label || c.id }))
+          : serverComponents.map((c) => ({ value: c.id, label: c.label || c.id }));
 
   const handleAdd = () => {
     const target = targetId || targetOptions[0]?.value;
@@ -87,6 +96,9 @@ export function FailureScenariosPanel() {
         break;
       case 'cache-flush':
         scenario = { type, targetId: target, triggerTime };
+        break;
+      case 'random-error':
+        scenario = { type, targetId: target, triggerTime, duration, errorRate };
         break;
     }
     addScenario(scenario);
@@ -206,6 +218,21 @@ export function FailureScenariosPanel() {
                     style={{ width: 56 }}
                   />
                   <span style={{ fontSize: 11, color: '#8888aa' }}>%</span>
+                </div>
+              )}
+
+              {type === 'random-error' && (
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Rate:</label>
+                  <input
+                    className="sim-input"
+                    type="number" min={0.01} max={1} step={0.05} value={errorRate}
+                    onChange={(e) => setErrorRate(Number(e.target.value))}
+                    style={{ width: 56 }}
+                  />
+                  <span style={{ fontSize: 11, color: '#8888aa' }}>
+                    ({(errorRate * 100).toFixed(0)}% of requests fail)
+                  </span>
                 </div>
               )}
 

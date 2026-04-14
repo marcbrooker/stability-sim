@@ -28,8 +28,9 @@ export class LoadBalancer implements SimComponent {
   // Least-connections tracking: downstream ID → active connection count
   private connectionCounts: Map<string, number> = new Map();
 
-  // Failed downstream component IDs (set by failure injector)
+  // Failure states
   private failedDownstream: Set<string> = new Set();
+  private errorRate: number = 0;
 
   // Track in-flight work units to know which downstream they went to
   private workUnitToDownstream: Map<string, string> = new Map();
@@ -68,6 +69,12 @@ export class LoadBalancer implements SimComponent {
    * Returns failure if all downstream are failed (Req 8.3).
    */
   private handleArrival(event: SimEvent, context: SimContext): SimEvent[] {
+    // Random error injection
+    if (this.errorRate > 0 && context.random() < this.errorRate) {
+      this.totalFailed++;
+      return [createDepartureToOrigin(event.workUnit, context, true)];
+    }
+
     const allDownstream = context.getDownstream(this.id);
     const available = allDownstream.filter(id => !this.failedDownstream.has(id));
 
@@ -170,6 +177,8 @@ export class LoadBalancer implements SimComponent {
 
   // --- Failure state setters (called by failure injector) ---
 
+  setErrorRate(rate: number): void { this.errorRate = rate; }
+
   /** Mark a downstream component as failed (Req 8.2) */
   setDownstreamFailed(componentId: string, failed: boolean): void {
     if (failed) {
@@ -185,6 +194,7 @@ export class LoadBalancer implements SimComponent {
       tpsForwarded: this.totalForwarded,
       totalFailed: this.totalFailed,
       failedDownstreamCount: this.failedDownstream.size,
+      errorRate: this.errorRate,
     };
   }
 
@@ -193,6 +203,7 @@ export class LoadBalancer implements SimComponent {
     this.rrIndex = 0;
     this.connectionCounts.clear();
     this.failedDownstream.clear();
+    this.errorRate = 0;
     this.workUnitToDownstream.clear();
     this.pendingOrigins.clear();
     this.totalForwarded = 0;

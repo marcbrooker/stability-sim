@@ -30,6 +30,7 @@ export class Server implements SimComponent {
   private crashed: boolean = false;
   private latencySpikeMultiplier: number = 1;
   private cpuReductionPercent: number = 0;
+  private errorRate: number = 0;
 
   // Metrics
   private tpsProcessed: number = 0;
@@ -52,6 +53,12 @@ export class Server implements SimComponent {
 
   private handleArrival(event: SimEvent, context: SimContext): SimEvent[] {
     if (this.crashed) {
+      this.totalRejected++;
+      return [createDepartureToOrigin(event.workUnit, context, true)];
+    }
+
+    // Random error injection: fail a percentage of requests
+    if (this.errorRate > 0 && context.random() < this.errorRate) {
       this.totalRejected++;
       return [createDepartureToOrigin(event.workUnit, context, true)];
     }
@@ -123,6 +130,7 @@ export class Server implements SimComponent {
   setCrashed(crashed: boolean): void { this.crashed = crashed; }
   setLatencySpike(multiplier: number): void { this.latencySpikeMultiplier = multiplier; }
   setCpuReduction(reductionPercent: number): void { this.cpuReductionPercent = reductionPercent; }
+  setErrorRate(rate: number): void { this.errorRate = rate; }
 
   getMetrics(): ComponentMetrics {
     return {
@@ -133,6 +141,7 @@ export class Server implements SimComponent {
       crashed: this.crashed ? 1 : 0,
       latencySpikeMultiplier: this.latencySpikeMultiplier,
       cpuReductionPercent: this.cpuReductionPercent,
+      errorRate: this.errorRate,
     };
   }
 
@@ -141,6 +150,7 @@ export class Server implements SimComponent {
     this.crashed = false;
     this.latencySpikeMultiplier = 1;
     this.cpuReductionPercent = 0;
+    this.errorRate = 0;
     this.tpsProcessed = 0;
     this.totalRejected = 0;
   }
