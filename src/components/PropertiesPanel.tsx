@@ -378,7 +378,7 @@ function ClientConfigFields({
           const defaults: Record<string, unknown> = {
             'none': { type: 'none' },
             'fixed-n': { type: 'fixed-n', maxRetries: 3 },
-            'token-bucket': { type: 'token-bucket', capacity: 10, depositAmount: 1 },
+            'token-bucket': { type: 'token-bucket', capacity: 10, depositAmount: 0.02 },
             'circuit-breaker': { type: 'circuit-breaker', windowSize: 10, failureThreshold: 5, maxRetries: 3 },
           };
           update({ retryStrategy: defaults[v] });
