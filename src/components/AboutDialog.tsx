@@ -41,6 +41,13 @@ export function AboutDialog() {
               predictions — exact tipping points, recovery times — will be optimistic.
             </p>
 
+            <div className="about-section-title">Demo</div>
+            <p>
+              <a href="https://www.youtube.com/watch?v=ymud-sjJgnQ" target="_blank" rel="noopener noreferrer">
+                Watch the video walkthrough
+              </a>
+            </p>
+
             <div className="about-section-title">More to read</div>
             <ul className="about-links">
               <li>
