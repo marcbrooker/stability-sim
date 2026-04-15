@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useArchitectureStore } from '../stores/architecture-store';
 import { useSimulationStore } from '../stores/simulation-store';
 import { useMetricsStore } from '../stores/metrics-store';
@@ -10,7 +10,56 @@ interface SavedScenario {
   simulationConfig: SimulationConfig;
 }
 
+/**
+ * Validate the structure of a loaded scenario before putting it into stores.
+ * Throws descriptive errors for common issues (missing fields, wrong types).
+ */
+export function validateScenario(data: unknown): SavedScenario {
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Expected a JSON object');
+  }
+  const obj = data as Record<string, unknown>;
+
+  // Architecture
+  if (!obj.architecture || typeof obj.architecture !== 'object') {
+    throw new Error('Missing or invalid "architecture" field');
+  }
+  const arch = obj.architecture as Record<string, unknown>;
+  if (!Array.isArray(arch.components)) {
+    throw new Error('architecture.components must be an array');
+  }
+  if (!Array.isArray(arch.connections)) {
+    throw new Error('architecture.connections must be an array');
+  }
+  for (let i = 0; i < arch.components.length; i++) {
+    const c = arch.components[i] as Record<string, unknown>;
+    if (!c || typeof c.id !== 'string' || typeof c.type !== 'string') {
+      throw new Error(`architecture.components[${i}] is missing id or type`);
+    }
+    if (!c.config || typeof c.config !== 'object') {
+      throw new Error(`architecture.components[${i}] is missing config`);
+    }
+  }
+
+  // SimulationConfig
+  if (!obj.simulationConfig || typeof obj.simulationConfig !== 'object') {
+    throw new Error('Missing or invalid "simulationConfig" field');
+  }
+  const config = obj.simulationConfig as Record<string, unknown>;
+  if (typeof config.endTime !== 'number') {
+    throw new Error('simulationConfig.endTime must be a number');
+  }
+  if (!Array.isArray(config.failureScenarios)) {
+    // Tolerate missing failureScenarios — default to empty
+    (config as Record<string, unknown>).failureScenarios = [];
+  }
+
+  return data as SavedScenario;
+}
+
 export function SaveLoadButtons() {
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const handleSave = useCallback(async () => {
     const { name, components, connections } = useArchitectureStore.getState();
     const simStore = useSimulationStore.getState();
@@ -70,7 +119,8 @@ export function SaveLoadButtons() {
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const scenario = JSON.parse(reader.result as string) as SavedScenario;
+          const raw = JSON.parse(reader.result as string);
+          const scenario = validateScenario(raw);
           const arch = scenario.architecture;
           const config = scenario.simulationConfig;
 
@@ -86,7 +136,7 @@ export function SaveLoadButtons() {
 
           useArchitectureStore.getState().setArchitecture(arch.name, arch.components, arch.connections);
         } catch (err: unknown) {
-          alert(`Failed to load: ${err instanceof Error ? err.message : String(err)}`);
+          setLoadError(err instanceof Error ? err.message : String(err));
         }
       };
       reader.readAsText(file);
@@ -95,13 +145,37 @@ export function SaveLoadButtons() {
   }, []);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <button className="sim-btn" onClick={handleSave} title="Save scenario to JSON file">
-        Save
-      </button>
-      <button className="sim-btn" onClick={handleLoad} title="Load scenario from JSON file">
-        Load
-      </button>
-    </div>
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="sim-btn" onClick={handleSave} title="Save scenario to JSON file">
+          Save
+        </button>
+        <button className="sim-btn" onClick={handleLoad} title="Load scenario from JSON file">
+          Load
+        </button>
+      </div>
+      {loadError && (
+        <>
+          <div className="about-backdrop" onClick={() => setLoadError(null)} />
+          <div className="about-dialog">
+            <div className="about-header">
+              <strong>Failed to load scenario</strong>
+              <button
+                className="sim-btn sim-btn-sm"
+                onClick={() => setLoadError(null)}
+                style={{ padding: '1px 6px', background: 'none' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ color: '#e8c8c8' }}>{loadError}</p>
+            <p className="about-caveat">
+              This can happen when loading a file saved with an older version of the simulator.
+              The format may have changed since the file was created.
+            </p>
+          </div>
+        </>
+      )}
+    </>
   );
 }
