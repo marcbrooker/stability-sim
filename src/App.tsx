@@ -65,7 +65,7 @@ function defaultConfig(type: ComponentType): ComponentConfig {
     case 'queue':
       return { type: 'queue', maxConcurrency: 10 };
     case 'throttle':
-      return { type: 'throttle', maxConcurrency: 10 };
+      return { type: 'throttle', mode: { type: 'concurrency', maxConcurrency: 10 } };
   }
 }
 

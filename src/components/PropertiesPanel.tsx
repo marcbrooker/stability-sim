@@ -769,12 +769,51 @@ function ThrottleConfigFields({
   config: ComponentConfig & { type: 'throttle' };
   update: (p: Record<string, unknown>) => void;
 }) {
+  const mode = config.mode;
   return (
-    <NumberField
-      label="Max Concurrency"
-      value={config.maxConcurrency}
-      onChange={(v) => update({ maxConcurrency: v })}
-      info="Maximum in-flight requests to downstream. Arrivals beyond this are immediately rejected as failures — no buffering, no queueing delay."
-    />
+    <>
+      <SelectField
+        label="Throttle Mode"
+        value={mode.type}
+        options={[
+          { value: 'disabled', label: 'Disabled (pass-through)' },
+          { value: 'concurrency', label: 'Max Concurrency' },
+          { value: 'rps', label: 'Max Requests/s (EWMA)' },
+        ]}
+        onChange={(v) => {
+          const defaults: Record<string, unknown> = {
+            'disabled': { type: 'disabled' },
+            'concurrency': { type: 'concurrency', maxConcurrency: 10 },
+            'rps': { type: 'rps', maxRps: 100, ewmaHalfLife: 1 },
+          };
+          update({ mode: defaults[v] });
+        }}
+        info="Disabled: all requests pass through. Concurrency: reject when in-flight count exceeds limit. RPS: reject when exponentially weighted moving average of arrival rate exceeds limit."
+      />
+      {mode.type === 'concurrency' && (
+        <NumberField
+          label="Max Concurrency"
+          value={mode.maxConcurrency}
+          onChange={(v) => update({ mode: { ...mode, maxConcurrency: v } })}
+          info="Maximum in-flight requests to downstream. Arrivals beyond this are immediately rejected — no buffering, no queueing delay."
+        />
+      )}
+      {mode.type === 'rps' && (
+        <>
+          <NumberField
+            label="Max RPS"
+            value={mode.maxRps}
+            onChange={(v) => update({ mode: { ...mode, maxRps: v } })}
+            info="Maximum allowed requests per second. When the EWMA of the arrival rate exceeds this, new arrivals are rejected."
+          />
+          <NumberField
+            label="EWMA Half-Life (s)"
+            value={mode.ewmaHalfLife}
+            onChange={(v) => update({ mode: { ...mode, ewmaHalfLife: v } })}
+            info="How quickly the rate estimate reacts to changes. Shorter half-life tracks bursts closely. Longer half-life smooths out spikes and responds more slowly."
+          />
+        </>
+      )}
+    </>
   );
 }

@@ -63,9 +63,15 @@ export interface LoadBalancerConfig {
   strategy: 'round-robin' | 'random' | 'least-connections';
 }
 
+/** Throttle mode configuration */
+export type ThrottleMode =
+  | { type: 'disabled' }
+  | { type: 'concurrency'; maxConcurrency: number }
+  | { type: 'rps'; maxRps: number; ewmaHalfLife: number };
+
 /** Throttle component configuration */
 export interface ThrottleConfig {
-  maxConcurrency: number; // reject arrivals when this many requests are in-flight
+  mode: ThrottleMode;
 }
 
 /** Queue component configuration */
