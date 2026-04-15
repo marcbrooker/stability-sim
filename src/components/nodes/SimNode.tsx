@@ -86,8 +86,8 @@ export function SimNode({
       </button>
       <div>{emoji} {label}</div>
       {notes && (
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3, lineHeight: 1.3 }}>
-          {notes.length > 60 ? notes.slice(0, 57) + '...' : notes}
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3, lineHeight: 1.3, maxWidth: 150, wordWrap: 'break-word', whiteSpace: 'normal' }}>
+          {notes}
         </div>
       )}
       <Handle type="source" position={Position.Right} />
