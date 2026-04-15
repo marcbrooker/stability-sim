@@ -52,8 +52,23 @@ npm run dev          # Dev server (do not run in automated pipelines)
 5. Create a React Flow node renderer in `src/components/nodes/` and register it in `src/components/nodes/index.ts`.
 6. Add a default config case in `App.tsx` (`defaultConfig` function).
 7. Add the type to the component palette in `src/components/ComponentPalette.tsx`.
-8. Update the properties panel in `src/components/PropertiesPanel.tsx` to handle the new config.
-9. Update serializers if the new config introduces types not already covered.
+8. Add `'your-type'` to `ComponentType` in `src/types/components.ts`.
+9. Update the properties panel in `src/components/PropertiesPanel.tsx` to handle the new config.
+10. Update serializers if the new config introduces types not already covered.
+
+### When Adding a New Failure Scenario Type
+
+1. Add the type to the `FailureScenario` union in `src/types/failures.ts`.
+2. Add `extractScenarioDetails`, `applyFailure`, and `removeFailure` cases in `src/engine/failure-injector.ts`.
+3. Add the label to `SCENARIO_LABELS` and a `describeScenario` case in `src/components/FailureScenariosPanel.tsx`.
+4. Add target filtering, `handleAdd` case, and any parameter inputs to the same panel.
+5. If the scenario sets state on a component (e.g., `setErrorRate`), add the setter to the component, include it in `getMetrics`, and clear it in `reset`.
+
+### When Adding a New Example
+
+1. Add the example object in `src/examples/index.ts` and include it in the `EXAMPLES` array.
+2. The `id` field is used for deep linking (`?example=<id>`). Keep it URL-safe (lowercase, hyphens).
+3. Example loading logic lives in `src/examples/load-example.ts` — shared by `ExamplesMenu` and the URL handler.
 
 ## Conventions
 
@@ -69,3 +84,8 @@ npm run dev          # Dev server (do not run in automated pipelines)
 - Forgetting to handle a new `EventKind` in a component's `handleEvent` will silently drop events.
 - Changing the priority queue comparison logic can break simulation determinism across all tests.
 - The `MetricCollector` is shared state inside the engine — record metrics via `context.recordMetric()`, not by importing the collector directly in components.
+- CPU reduction reduces concurrency *slots* — the Server instantly rejects excess arrivals. This does NOT cause queue buildup. Use a latency spike instead if you want queues to grow (items take longer but are still accepted).
+- Servers are terminal processors — they handle a request and send a departure back to the origin. They do NOT forward to downstream components. Multi-tier service chains are not possible with the current component model.
+- Origin rewriting (`originClientId`) is how Queue, LoadBalancer, Cache, and Throttle intercept responses. If you add a new pass-through component, it must stash the real origin on arrival and restore it on departure, or responses won't route back correctly.
+- Loaded JSON files can crash the app if the config format has changed. `validateScenario()` in `SaveLoadButtons.tsx` catches structural issues; the `ErrorBoundary` in `main.tsx` catches render crashes from stale data that passes validation.
+- The `dist/` directory is NOT rebuilt by `cdk deploy`. Always run `npm run build` before deploying. The CDK stack is in `infra/`.
