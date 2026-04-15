@@ -4,6 +4,7 @@ import { QueueNode } from './QueueNode';
 import { CacheNode } from './CacheNode';
 import { LoadBalancerNode } from './LoadBalancerNode';
 import { DatabaseNode } from './DatabaseNode';
+import { ThrottleNode } from './ThrottleNode';
 import type { NodeTypes } from '@xyflow/react';
 
 export const nodeTypes: NodeTypes = {
@@ -13,4 +14,5 @@ export const nodeTypes: NodeTypes = {
   cache: CacheNode,
   'load-balancer': LoadBalancerNode,
   database: DatabaseNode,
+  throttle: ThrottleNode,
 };

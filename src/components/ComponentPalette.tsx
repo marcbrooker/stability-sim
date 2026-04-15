@@ -14,6 +14,7 @@ const paletteItems: PaletteItem[] = [
   { type: 'cache', label: 'Cache', emoji: '💾', color: '#27ae60' },
   { type: 'database', label: 'Database', emoji: '🗄️', color: '#c0392b' },
   { type: 'queue', label: 'Queue', emoji: '📋', color: '#8e44ad' },
+  { type: 'throttle', label: 'Throttle', emoji: '🚦', color: '#e67e22' },
 ];
 
 const containerStyle: React.CSSProperties = {

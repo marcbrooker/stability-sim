@@ -64,6 +64,8 @@ function defaultConfig(type: ComponentType): ComponentConfig {
       return { type: 'load-balancer', strategy: 'round-robin' };
     case 'queue':
       return { type: 'queue', maxConcurrency: 10 };
+    case 'throttle':
+      return { type: 'throttle', maxConcurrency: 10 };
   }
 }
 

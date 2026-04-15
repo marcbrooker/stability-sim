@@ -63,6 +63,11 @@ export interface LoadBalancerConfig {
   strategy: 'round-robin' | 'random' | 'least-connections';
 }
 
+/** Throttle component configuration */
+export interface ThrottleConfig {
+  maxConcurrency: number; // reject arrivals when this many requests are in-flight
+}
+
 /** Queue component configuration */
 export interface QueueConfig {
   maxCapacity?: number; // undefined = unlimited

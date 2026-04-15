@@ -6,10 +6,11 @@ import type {
   CacheConfig,
   LoadBalancerConfig,
   QueueConfig,
+  ThrottleConfig,
 } from './configs';
 
 /** Supported component types */
-export type ComponentType = 'client' | 'load-balancer' | 'server' | 'cache' | 'database' | 'queue';
+export type ComponentType = 'client' | 'load-balancer' | 'server' | 'cache' | 'database' | 'queue' | 'throttle';
 
 /** Union of all component configurations, discriminated by type */
 export type ComponentConfig =
@@ -18,7 +19,8 @@ export type ComponentConfig =
   | ({ type: 'database' } & DatabaseConfig)
   | ({ type: 'cache' } & CacheConfig)
   | ({ type: 'load-balancer' } & LoadBalancerConfig)
-  | ({ type: 'queue' } & QueueConfig);
+  | ({ type: 'queue' } & QueueConfig)
+  | ({ type: 'throttle' } & ThrottleConfig);
 
 /** Per-component metrics snapshot */
 export interface ComponentMetrics {

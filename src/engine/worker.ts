@@ -20,6 +20,7 @@ import { Queue } from './components/queue';
 import { Cache } from './components/cache';
 import { LoadBalancer } from './components/load-balancer';
 import { Database } from './components/database';
+import { Throttle } from './components/throttle';
 
 // --- Worker state ---
 
@@ -76,6 +77,10 @@ function buildComponent(def: ComponentDefinition): SimComponent {
     case 'database': {
       const { type: _, ...dbCfg } = cfg;
       return new Database(def.id, dbCfg);
+    }
+    case 'throttle': {
+      const { type: _, ...throttleCfg } = cfg;
+      return new Throttle(def.id, throttleCfg);
     }
     default:
       throw new Error(`Unknown component type: ${(cfg as { type: string }).type}`);

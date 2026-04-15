@@ -176,6 +176,8 @@ function ComponentConfigEditor({
       return <LoadBalancerConfigFields config={config} update={update} />;
     case 'queue':
       return <QueueConfigFields config={config} update={update} />;
+    case 'throttle':
+      return <ThrottleConfigFields config={config} update={update} />;
     default:
       return <div>Unknown component type</div>;
   }
@@ -757,5 +759,22 @@ function QueueConfigFields({
         />
       )}
     </>
+  );
+}
+
+function ThrottleConfigFields({
+  config,
+  update,
+}: {
+  config: ComponentConfig & { type: 'throttle' };
+  update: (p: Record<string, unknown>) => void;
+}) {
+  return (
+    <NumberField
+      label="Max Concurrency"
+      value={config.maxConcurrency}
+      onChange={(v) => update({ maxConcurrency: v })}
+      info="Maximum in-flight requests to downstream. Arrivals beyond this are immediately rejected as failures — no buffering, no queueing delay."
+    />
   );
 }
