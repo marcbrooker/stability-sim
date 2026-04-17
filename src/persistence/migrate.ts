@@ -51,7 +51,7 @@ export function migrate(data: unknown): RawScenario {
     );
   }
 
-  let current = obj;
+  let current = { ...obj };
   for (let v = version; v < CURRENT_VERSION; v++) {
     current = migrations[v - 1](current);
   }

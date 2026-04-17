@@ -59,6 +59,12 @@ The `validateScenario()` function in `SaveLoadButtons.tsx` calls `migrate()` bef
 
 Existing shared URLs and saved JSON files will keep working as long as the migration chain is maintained. Never remove a migration function — they're cumulative.
 
+**Test requirements for migrations:**
+
+- `migrate.test.ts` — unit tests: each migration must have a test that feeds old-format data through `migrate()` and asserts the output shape. Add one per version bump.
+- `migrate.property.test.ts` — property tests that verify structural invariants across all migrations: output passes `validateScenario`, idempotency (`migrate(migrate(x)) ≡ migrate(x)`), no input mutation, and migration chain length matches `CURRENT_VERSION - 1`. These tests do not need updating when adding a new migration — they run automatically against whatever the current chain is.
+- `url-codec.property.test.ts` — property tests for the URL codec round-trip (`decode(encode(x)) ≡ x`). Update if the codec format changes.
+
 ### When Adding a New Component Type
 
 1. Define its config type in `src/types/configs.ts` and add it to the `ComponentConfig` union in `src/types/components.ts`.
