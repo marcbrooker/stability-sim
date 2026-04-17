@@ -3,6 +3,7 @@ import { useArchitectureStore } from '../stores/architecture-store';
 import { useSimulationStore } from '../stores/simulation-store';
 import { useMetricsStore } from '../stores/metrics-store';
 import { encodeScenario } from '../persistence/url-codec';
+import { migrate, CURRENT_VERSION } from '../persistence/migrate';
 import type { Architecture, SimulationConfig } from '../types';
 
 interface SavedScenario {
@@ -12,14 +13,11 @@ interface SavedScenario {
 }
 
 /**
- * Validate the structure of a loaded scenario before putting it into stores.
+ * Migrate (if needed) and validate a loaded scenario before putting it into stores.
  * Throws descriptive errors for common issues (missing fields, wrong types).
  */
 export function validateScenario(data: unknown): SavedScenario {
-  if (typeof data !== 'object' || data === null) {
-    throw new Error('Expected a JSON object');
-  }
-  const obj = data as Record<string, unknown>;
+  const obj = migrate(data);
 
   // Architecture
   if (!obj.architecture || typeof obj.architecture !== 'object') {
@@ -65,10 +63,10 @@ export function buildScenario(): SavedScenario {
   const config = simStore.simulationConfig;
 
   return {
-    schemaVersion: 1,
-    architecture: { schemaVersion: 1, name: name || 'Untitled', components, connections },
+    schemaVersion: CURRENT_VERSION,
+    architecture: { schemaVersion: CURRENT_VERSION, name: name || 'Untitled', components, connections },
     simulationConfig: {
-      schemaVersion: 1,
+      schemaVersion: CURRENT_VERSION,
       name: config?.name ?? name ?? 'Untitled',
       endTime: config?.endTime ?? 60,
       metricsWindowSize: config?.metricsWindowSize ?? 1,
