@@ -222,6 +222,7 @@ function FlowCanvas() {
 
 function App() {
   const [dashHeight, setDashHeight] = useState(200);
+  const [urlLoadError, setUrlLoadError] = useState<string | null>(null);
   const dragging = useRef(false);
   const startY = useRef(0);
   const startH = useRef(0);
@@ -237,7 +238,7 @@ function App() {
           const scenario = validateScenario(raw);
           loadScenarioIntoStores(scenario);
         })
-        .catch((err) => console.error('Failed to load shared scenario:', err));
+        .catch((err) => setUrlLoadError(err instanceof Error ? err.message : String(err)));
       return;
     }
     const exampleId = params.get('example');
@@ -301,6 +302,27 @@ function App() {
         />
         <div className="app-dashboard" style={{ height: dashHeight }}><Dashboard /></div>
       </div>
+      {urlLoadError && (
+        <>
+          <div className="about-backdrop" onClick={() => setUrlLoadError(null)} />
+          <div className="about-dialog">
+            <div className="about-header">
+              <strong>Failed to load shared scenario</strong>
+              <button
+                className="sim-btn sim-btn-sm"
+                onClick={() => setUrlLoadError(null)}
+                style={{ padding: '1px 6px', background: 'none' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ color: '#e8c8c8' }}>{urlLoadError}</p>
+            <p className="about-caveat">
+              The shared URL may be corrupted, truncated, or from a newer version of the simulator.
+            </p>
+          </div>
+        </>
+      )}
     </ReactFlowProvider>
   );
 }
