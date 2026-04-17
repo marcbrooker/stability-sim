@@ -41,7 +41,23 @@ npm run dev          # Dev server (do not run in automated pipelines)
 ### When Modifying Persistence (`src/persistence/`)
 
 - Serializers must maintain the round-trip property: `parse(serialize(x))` must produce a value equivalent to `x`. This is enforced by property-based tests.
-- The JSON format includes a `schemaVersion` field. If you change the serialized shape, bump the schema version and handle migration from the previous version.
+- The URL codec (`url-codec.ts`) compresses scenarios with deflate-raw + base64url for `?s=` sharing. It uses the native `CompressionStream` API — no external dependencies.
+- Schema migrations (`migrate.ts`) run before validation on every load (JSON file or shared URL). See "When Changing the Saved Scenario Schema" below.
+
+### When Changing the Saved Scenario Schema
+
+Saved scenarios (JSON files and `?s=` URLs) carry a top-level `schemaVersion`. The migration pipeline in `src/persistence/migrate.ts` upgrades old data to the latest format so the rest of the codebase only ever sees `CURRENT_VERSION`.
+
+To evolve the schema:
+
+1. Bump `CURRENT_VERSION` in `src/persistence/migrate.ts`.
+2. Write a migration function (e.g., `migrateV1toV2(data)`) that transforms the old shape to the new one. This is a pure function on a plain object — no imports from the type system needed.
+3. Append it to the `migrations` array in the same file.
+4. Add a test in `src/persistence/migrate.test.ts` that feeds old-format data through `migrate()` and checks the output.
+
+The `validateScenario()` function in `SaveLoadButtons.tsx` calls `migrate()` before structural validation, so all load paths (JSON file, `?s=` URL) go through migration automatically.
+
+Existing shared URLs and saved JSON files will keep working as long as the migration chain is maintained. Never remove a migration function — they're cumulative.
 
 ### When Adding a New Component Type
 
@@ -87,5 +103,5 @@ npm run dev          # Dev server (do not run in automated pipelines)
 - CPU reduction reduces concurrency *slots* — the Server instantly rejects excess arrivals. This does NOT cause queue buildup. Use a latency spike instead if you want queues to grow (items take longer but are still accepted).
 - Servers are terminal processors — they handle a request and send a departure back to the origin. They do NOT forward to downstream components. Multi-tier service chains are not possible with the current component model.
 - Origin rewriting (`originClientId`) is how Queue, LoadBalancer, Cache, and Throttle intercept responses. If you add a new pass-through component, it must stash the real origin on arrival and restore it on departure, or responses won't route back correctly.
-- Loaded JSON files can crash the app if the config format has changed. `validateScenario()` in `SaveLoadButtons.tsx` catches structural issues; the `ErrorBoundary` in `main.tsx` catches render crashes from stale data that passes validation.
+- Loaded JSON files can crash the app if the config format has changed. `validateScenario()` in `SaveLoadButtons.tsx` catches structural issues; the `ErrorBoundary` in `main.tsx` catches render crashes from stale data that passes validation. If you changed the schema, add a migration — see "When Changing the Saved Scenario Schema".
 - The `dist/` directory is NOT rebuilt by `cdk deploy`. Always run `npm run build` before deploying. The CDK stack is in `infra/`.

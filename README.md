@@ -63,7 +63,7 @@ The engine runs in a **Web Worker** so the UI stays responsive. The main thread 
 │  Component models, FailureInjector, SeededRNG        │
 ├─────────────────────────────────────────────────────┤
 │  Persistence Layer                                   │
-│  JSON serializers for architectures & sim configs    │
+│  JSON serializers, URL codec, schema migrations      │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -115,7 +115,8 @@ cd infra && npx cdk deploy --profile <your-profile>
 4. Add failure scenarios in the panel below the properties.
 5. Use the top bar controls to start, pause, step, or reset the simulation.
 6. Watch metrics update live in the dashboard at the bottom.
-7. Save/load scenarios as JSON files, or share via deep link.
+7. Save/load scenarios as JSON files, or share via URL.
+8. Click **Share** to copy a shareable URL containing the full scenario to your clipboard.
 
 ## Project Structure
 
@@ -126,7 +127,7 @@ src/
 ├── engine/            # Simulation engine, Web Worker, PRNG, metric collector
 │   └── components/    # Simulation component models (client, server, etc.)
 ├── examples/          # Built-in example scenarios and load logic
-├── persistence/       # JSON serializers for architecture & sim config
+├── persistence/       # JSON serializers, URL codec, schema migrations
 ├── stores/            # Zustand state stores
 └── types/             # TypeScript type definitions
 infra/                 # CDK deployment (S3, CloudFront, Route53)
