@@ -32,6 +32,7 @@ export function loadExample(example: Example): void {
 
   // Update URL bar with deep link (without triggering navigation)
   const url = new URL(window.location.href);
+  url.searchParams.delete('s');
   url.searchParams.set('example', example.id);
   window.history.replaceState({}, '', url.toString());
 }

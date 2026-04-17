@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useArchitectureStore } from '../stores/architecture-store';
 import { useSimulationStore } from '../stores/simulation-store';
 import { useMetricsStore } from '../stores/metrics-store';
+import { encodeScenario } from '../persistence/url-codec';
 import type { Architecture, SimulationConfig } from '../types';
 
 interface SavedScenario {
@@ -57,30 +58,53 @@ export function validateScenario(data: unknown): SavedScenario {
   return data as SavedScenario;
 }
 
+/** Build the current scenario object from stores */
+export function buildScenario(): SavedScenario {
+  const { name, components, connections } = useArchitectureStore.getState();
+  const simStore = useSimulationStore.getState();
+  const config = simStore.simulationConfig;
+
+  return {
+    schemaVersion: 1,
+    architecture: { schemaVersion: 1, name: name || 'Untitled', components, connections },
+    simulationConfig: {
+      schemaVersion: 1,
+      name: config?.name ?? name ?? 'Untitled',
+      endTime: config?.endTime ?? 60,
+      metricsWindowSize: config?.metricsWindowSize ?? 1,
+      seed: config?.seed ?? 42,
+      failureScenarios: [
+        ...(config?.failureScenarios ?? []),
+        ...simStore.failureScenarios,
+      ],
+    },
+  };
+}
+
+/** Load a validated scenario into the stores, resetting simulation state */
+export function loadScenarioIntoStores(scenario: SavedScenario): void {
+  const arch = scenario.architecture;
+  const config = scenario.simulationConfig;
+
+  useSimulationStore.getState().setStatus('idle');
+  useSimulationStore.getState().setCurrentTime(0);
+  useSimulationStore.getState().clearFailureScenarios();
+  useSimulationStore.getState().setSimulationConfig({ ...config, failureScenarios: [] });
+  useMetricsStore.getState().reset();
+
+  for (const s of config.failureScenarios) {
+    useSimulationStore.getState().addFailureScenario(s);
+  }
+
+  useArchitectureStore.getState().setArchitecture(arch.name, arch.components, arch.connections);
+}
+
 export function SaveLoadButtons() {
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [shareLabel, setShareLabel] = useState('Share');
 
   const handleSave = useCallback(async () => {
-    const { name, components, connections } = useArchitectureStore.getState();
-    const simStore = useSimulationStore.getState();
-    const config = simStore.simulationConfig;
-
-    const scenario: SavedScenario = {
-      schemaVersion: 1,
-      architecture: { schemaVersion: 1, name: name || 'Untitled', components, connections },
-      simulationConfig: {
-        schemaVersion: 1,
-        name: config?.name ?? name ?? 'Untitled',
-        endTime: config?.endTime ?? 60,
-        metricsWindowSize: config?.metricsWindowSize ?? 1,
-        seed: config?.seed ?? 42,
-        failureScenarios: [
-          ...(config?.failureScenarios ?? []),
-          ...simStore.failureScenarios,
-        ],
-      },
-    };
-
+    const scenario = buildScenario();
     const defaultName = scenario.architecture.name || 'scenario';
     const json = JSON.stringify(scenario, null, 2);
 
@@ -121,20 +145,7 @@ export function SaveLoadButtons() {
         try {
           const raw = JSON.parse(reader.result as string);
           const scenario = validateScenario(raw);
-          const arch = scenario.architecture;
-          const config = scenario.simulationConfig;
-
-          useSimulationStore.getState().setStatus('idle');
-          useSimulationStore.getState().setCurrentTime(0);
-          useSimulationStore.getState().clearFailureScenarios();
-          useSimulationStore.getState().setSimulationConfig({ ...config, failureScenarios: [] });
-          useMetricsStore.getState().reset();
-
-          for (const s of config.failureScenarios) {
-            useSimulationStore.getState().addFailureScenario(s);
-          }
-
-          useArchitectureStore.getState().setArchitecture(arch.name, arch.components, arch.connections);
+          loadScenarioIntoStores(scenario);
         } catch (err: unknown) {
           setLoadError(err instanceof Error ? err.message : String(err));
         }
@@ -142,6 +153,24 @@ export function SaveLoadButtons() {
       reader.readAsText(file);
     };
     input.click();
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    try {
+      const scenario = buildScenario();
+      const encoded = await encodeScenario(scenario);
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.searchParams.set('s', encoded);
+      const shareUrl = url.toString();
+      window.history.replaceState({}, '', shareUrl);
+      await navigator.clipboard.writeText(shareUrl);
+      setShareLabel('Copied!');
+      setTimeout(() => setShareLabel('Share'), 2000);
+    } catch {
+      setShareLabel('Failed');
+      setTimeout(() => setShareLabel('Share'), 2000);
+    }
   }, []);
 
   return (
@@ -152,6 +181,9 @@ export function SaveLoadButtons() {
         </button>
         <button className="sim-btn" onClick={handleLoad} title="Load scenario from JSON file">
           Load
+        </button>
+        <button className="sim-btn" onClick={handleShare} title="Copy shareable URL to clipboard">
+          {shareLabel}
         </button>
       </div>
       {loadError && (

@@ -27,6 +27,8 @@ import { Dashboard } from './components/Dashboard';
 import { AboutDialog } from './components/AboutDialog';
 import { findExampleById } from './examples';
 import { loadExample } from './examples/load-example';
+import { decodeScenario } from './persistence/url-codec';
+import { validateScenario, loadScenarioIntoStores } from './components/SaveLoadButtons';
 import type { ComponentConfig, ComponentType } from './types';
 
 /** Generate a simple unique id */
@@ -224,9 +226,20 @@ function App() {
   const startY = useRef(0);
   const startH = useRef(0);
 
-  // Load example from URL query param on mount (e.g. ?example=metastable-retry)
+  // Load scenario from URL query params on mount
+  // ?s= (shared scenario) takes priority over ?example=
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const encoded = params.get('s');
+    if (encoded) {
+      decodeScenario(encoded)
+        .then((raw) => {
+          const scenario = validateScenario(raw);
+          loadScenarioIntoStores(scenario);
+        })
+        .catch((err) => console.error('Failed to load shared scenario:', err));
+      return;
+    }
     const exampleId = params.get('example');
     if (exampleId) {
       const example = findExampleById(exampleId);
