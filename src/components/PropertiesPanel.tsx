@@ -1,7 +1,8 @@
-import { Trash2 } from 'lucide-react';
+import { Info, MousePointerClick, Trash2 } from 'lucide-react';
 import { useArchitectureStore } from '../stores/architecture-store';
 import { useUIStore } from '../stores/ui-store';
 import type { ComponentConfig, ComponentDefinition, ConnectionDefinition } from '../types';
+import { COMPONENT_VISUALS } from './component-icons';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -14,16 +15,6 @@ import {
   SelectValue,
 } from './ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-
-const TYPE_LABELS: Record<string, string> = {
-  client: 'Client',
-  server: 'Server',
-  database: 'Database',
-  cache: 'Cache',
-  'load-balancer': 'Load Balancer',
-  queue: 'Queue',
-  throttle: 'Throttle',
-};
 
 export function PropertiesPanel() {
   const selectedComponentId = useUIStore((s) => s.selectedComponentId);
@@ -39,10 +30,27 @@ export function PropertiesPanel() {
 
   if (selectedComponentId) {
     const comp = components.find((c) => c.id === selectedComponentId);
-    if (!comp) return <div className="p-3 text-sm text-muted-foreground">Component not found</div>;
+    if (!comp) return <div className="p-4 text-sm text-muted-foreground">Component not found</div>;
+    const visual = COMPONENT_VISUALS[comp.type];
+    const Icon = visual?.icon;
     return (
-      <div className="p-3 text-sm">
-        <PanelHeader title={comp.label} subtitle={TYPE_LABELS[comp.type] ?? comp.type} />
+      <div className="p-4 text-sm">
+        <div className="mb-4 flex items-start gap-3">
+          {Icon && (
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+              style={{ background: `${visual.color}22`, color: visual.color }}
+            >
+              <Icon className="h-4 w-4" strokeWidth={2.25} />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-foreground truncate">{comp.label}</div>
+            <div className="text-[11px] text-muted-foreground">
+              {visual?.label ?? comp.type}
+            </div>
+          </div>
+        </div>
         <ComponentConfigEditor key={comp.id} component={comp} onUpdate={updateComponentConfig} />
         <Field label="Notes">
           <Textarea
@@ -54,13 +62,13 @@ export function PropertiesPanel() {
           />
         </Field>
         <Button
-          variant="destructive"
+          variant="outline"
           size="sm"
           onClick={() => {
             removeComponent(comp.id);
             selectComponent(null);
           }}
-          className="mt-3"
+          className="mt-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 />
           Remove Component
@@ -71,7 +79,7 @@ export function PropertiesPanel() {
 
   if (selectedConnectionId) {
     const conn = connections.find((c) => c.id === selectedConnectionId);
-    if (!conn) return <div className="p-3 text-sm text-muted-foreground">Connection not found</div>;
+    if (!conn) return <div className="p-4 text-sm text-muted-foreground">Connection not found</div>;
     return (
       <ConnectionPanel
         conn={conn}
@@ -85,18 +93,22 @@ export function PropertiesPanel() {
   }
 
   return (
-    <div className="p-3 text-sm">
+    <div className="p-4 text-sm">
       <PanelHeader title="Properties" />
-      <div className="text-muted-foreground text-sm">Select a component or connection to edit.</div>
+      <div className="flex flex-col items-center justify-center text-center py-6 px-3 rounded-lg border border-dashed border-border">
+        <MousePointerClick className="h-5 w-5 text-muted-foreground/70 mb-2" />
+        <div className="text-xs text-muted-foreground leading-relaxed">
+          Select a component or connection<br />to edit its parameters.
+        </div>
+      </div>
     </div>
   );
 }
 
-function PanelHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function PanelHeader({ title }: { title: string }) {
   return (
-    <div className="mb-3 pb-2 border-b border-border">
-      <div className="text-sm font-semibold text-foreground">{title}</div>
-      {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
+    <div className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {title}
     </div>
   );
 }
@@ -125,11 +137,8 @@ function InfoTip({ text }: { text: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
-          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-muted text-muted-foreground text-[9px] font-bold cursor-help select-none leading-none"
-          aria-label="Info"
-        >
-          i
+        <span className="inline-flex cursor-help text-muted-foreground/60 hover:text-muted-foreground" aria-label="Info">
+          <Info className="h-3 w-3" strokeWidth={2.25} />
         </span>
       </TooltipTrigger>
       <TooltipContent>{text}</TooltipContent>
@@ -149,15 +158,27 @@ function ConnectionPanel({
   const source = components.find((c) => c.id === conn.sourceId);
   const target = components.find((c) => c.id === conn.targetId);
   return (
-    <div className="p-3 text-sm">
-      <PanelHeader title="Connection" />
+    <div className="p-4 text-sm">
+      <div className="mb-4">
+        <div className="text-sm font-semibold text-foreground">Connection</div>
+        <div className="text-[11px] text-muted-foreground">Edge between components</div>
+      </div>
       <Field label="Source">
-        <div className="text-foreground">{source?.label ?? conn.sourceId}</div>
+        <div className="text-foreground rounded-md bg-secondary/40 px-2.5 py-1.5 text-sm">
+          {source?.label ?? conn.sourceId}
+        </div>
       </Field>
       <Field label="Target">
-        <div className="text-foreground">{target?.label ?? conn.targetId}</div>
+        <div className="text-foreground rounded-md bg-secondary/40 px-2.5 py-1.5 text-sm">
+          {target?.label ?? conn.targetId}
+        </div>
       </Field>
-      <Button variant="destructive" size="sm" onClick={onDelete} className="mt-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onDelete}
+        className="mt-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+      >
         <Trash2 />
         Delete Connection
       </Button>

@@ -8,9 +8,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useMetricsStore } from '../stores/metrics-store';
-import { useSimulationStore } from '../stores/simulation-store';
 import { useArchitectureStore } from '../stores/architecture-store';
 import { Button } from './ui/button';
 import {
@@ -21,17 +20,8 @@ import {
   SelectValue,
 } from './ui/select';
 import { Separator } from './ui/separator';
-import { cn } from '@/lib/utils';
 
-// Matches the component palette colors from ComponentPalette.tsx
-const COLORS = ['#4a90d9', '#c0392b', '#27ae60', '#f39c12', '#8e44ad', '#e07b39'];
-
-const STATUS_COLORS: Record<string, string> = {
-  running: 'text-emerald-400',
-  paused: 'text-amber-400',
-  idle: 'text-muted-foreground',
-  completed: 'text-muted-foreground',
-};
+const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#f97316'];
 
 const formatTimeTick = (value: number) => Math.round(value).toString();
 
@@ -59,19 +49,16 @@ function ChartTitle({ children }: { children: React.ReactNode }) {
 }
 
 const RECHARTS_TOOLTIP_STYLE = {
-  background: 'oklch(0.21 0.03 265)',
-  border: '1px solid oklch(0.32 0.03 265)',
+  background: 'oklch(0.21 0.006 285.885)',
+  border: '1px solid oklch(1 0 0 / 12%)',
   borderRadius: 6,
   fontSize: 12,
 };
 
-const RECHARTS_TICK_STYLE = { fontSize: 10, fill: 'oklch(0.7 0.03 260)' };
+const RECHARTS_TICK_STYLE = { fontSize: 10, fill: 'oklch(0.705 0.015 286.067)' };
 
 export function Dashboard() {
   const latestSnapshot = useMetricsStore((s) => s.latestSnapshot);
-  const currentTime = useSimulationStore((s) => s.currentTime);
-  const speedMultiplier = useSimulationStore((s) => s.speedMultiplier);
-  const status = useSimulationStore((s) => s.status);
   const components = useArchitectureStore((s) => s.components);
 
   const [selections, setSelections] = useState<SelectedMetric[]>([]);
@@ -185,10 +172,8 @@ export function Dashboard() {
   return (
     <div className="flex flex-col h-full gap-1">
       <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
-        <strong className="text-foreground text-sm">Dashboard</strong>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          t={currentTime.toFixed(2)}s · {speedMultiplier.toFixed(1)}× ·{' '}
-          <span className={cn('font-medium', STATUS_COLORS[status])}>{status}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Dashboard
         </span>
 
         <Separator orientation="vertical" />
@@ -236,22 +221,26 @@ export function Dashboard() {
         </Button>
 
         <div className="flex flex-wrap gap-1.5">
-          {selections.map((sel, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => removeSelection(i)}
-              title="Click to remove"
-              className="text-[11px] rounded px-2 py-0.5 cursor-pointer transition-opacity hover:opacity-70"
-              style={{
-                background: COLORS[i % COLORS.length] + '22',
-                border: `1px solid ${COLORS[i % COLORS.length]}`,
-                color: COLORS[i % COLORS.length],
-              }}
-            >
-              {compLabel(sel.componentId)}.{sel.metricName} ✕
-            </button>
-          ))}
+          {selections.map((sel, i) => {
+            const c = COLORS[i % COLORS.length];
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => removeSelection(i)}
+                title="Click to remove"
+                className="group inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-opacity hover:opacity-80"
+                style={{
+                  background: `${c}1a`,
+                  borderColor: `${c}55`,
+                  color: c,
+                }}
+              >
+                <span>{compLabel(sel.componentId)}.{sel.metricName}</span>
+                <X className="h-3 w-3 opacity-60 group-hover:opacity-100" strokeWidth={2.5} />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -260,7 +249,7 @@ export function Dashboard() {
           <ChartTitle>Latency Percentiles</ChartTitle>
           <ResponsiveContainer width="100%" height="85%">
             <LineChart data={latencyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.03 265)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 8%)" />
               <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
               <YAxis tick={RECHARTS_TICK_STYLE} />
               <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
@@ -275,7 +264,7 @@ export function Dashboard() {
           <ChartTitle>Throughput (req/s)</ChartTitle>
           <ResponsiveContainer width="100%" height="85%">
             <LineChart data={throughputData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.03 265)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 8%)" />
               <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
               <YAxis tick={RECHARTS_TICK_STYLE} />
               <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
@@ -293,7 +282,7 @@ export function Dashboard() {
             </ChartTitle>
             <ResponsiveContainer width="100%" height="85%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.03 265)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 8%)" />
                 <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
                 <YAxis tick={RECHARTS_TICK_STYLE} />
                 <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />

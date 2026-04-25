@@ -272,7 +272,7 @@ function App() {
         <div className="flex flex-col h-screen w-screen overflow-hidden text-foreground bg-background">
           {/* Top bar */}
           <header className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card flex-shrink-0">
-            <span className="font-bold text-base tracking-tight text-foreground mr-1">
+            <span className="font-semibold text-sm tracking-tight text-foreground mr-1">
               Stability Sim
             </span>
             <ExamplesMenu />
@@ -281,13 +281,13 @@ function App() {
             <Separator orientation="vertical" />
             <SaveLoadButtons />
             <span className="flex-1" />
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden md:inline">
-              made by{' '}
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden lg:inline">
+              by{' '}
               <a
                 href="https://brooker.co.za/blog/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-foreground hover:underline"
               >
                 Marc Brooker
               </a>
@@ -296,9 +296,9 @@ function App() {
                 href="https://github.com/marcbrooker/stability-sim/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-foreground hover:underline"
               >
-                contribute on GitHub
+                GitHub
               </a>
             </span>
             <AboutDialog />
@@ -306,11 +306,11 @@ function App() {
 
           {/* Body */}
           <div className="flex flex-1 min-h-0">
-            <aside className="w-44 bg-card border-r border-border flex-shrink-0 overflow-y-auto">
+            <aside className="w-48 bg-card border-r border-border flex-shrink-0 overflow-y-auto">
               <ComponentPalette />
             </aside>
             <FlowCanvas />
-            <aside className="w-[340px] bg-card border-l border-border flex-shrink-0 overflow-y-auto">
+            <aside className="w-[340px] bg-card border-l border-border flex-shrink-0 overflow-y-auto flex flex-col">
               <PropertiesPanel />
               <FailureScenariosPanel />
             </aside>

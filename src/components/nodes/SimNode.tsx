@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Copy, X } from 'lucide-react';
+import { Copy, X, type LucideIcon } from 'lucide-react';
 import { useArchitectureStore } from '../../stores/architecture-store';
 import { useUIStore } from '../../stores/ui-store';
 
@@ -8,11 +8,10 @@ let cloneCounter = 0;
 export function SimNode({
   id,
   data,
-  emoji,
+  Icon,
   defaultLabel,
-  bg,
-  border,
-}: NodeProps & { emoji: string; defaultLabel: string; bg: string; border: string }) {
+  accent,
+}: NodeProps & { Icon: LucideIcon; defaultLabel: string; accent: string }) {
   const label = (data as { label?: string }).label ?? defaultLabel;
   const notes = (data as { notes?: string }).notes;
 
@@ -38,34 +37,37 @@ export function SimNode({
 
   return (
     <div
-      className="sim-node group relative min-w-[120px] rounded-lg border-2 px-4 py-2.5 text-center text-white text-sm shadow-md transition-shadow hover:shadow-lg"
-      style={{ background: bg, borderColor: border }}
+      className="sim-node group relative flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2 shadow-sm transition-shadow hover:shadow-md min-w-[140px]"
+      style={{ borderColor: `${accent}55` }}
     >
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+        style={{ background: `${accent}22`, color: accent }}
+      >
+        <Icon className="h-4 w-4" strokeWidth={2.25} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-foreground leading-tight truncate">{label}</div>
+        {notes && (
+          <div className="text-[10px] leading-snug text-muted-foreground truncate">{notes}</div>
+        )}
+      </div>
       <button
-        className="sim-node-hover-btn absolute -top-2 -right-2 hidden h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-destructive hover:border-destructive hover:text-destructive-foreground"
+        className="sim-node-hover-btn pointer-events-none absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-opacity hover:bg-destructive hover:border-destructive hover:text-destructive-foreground"
         onClick={onDelete}
         title="Delete"
         aria-label="Delete"
       >
-        <X className="h-3 w-3" strokeWidth={3} />
+        <X className="h-3 w-3" strokeWidth={2.5} />
       </button>
       <button
-        className="sim-node-hover-btn absolute -top-2 right-4 hidden h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground"
+        className="sim-node-hover-btn pointer-events-none absolute -top-2 right-4 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-opacity hover:bg-primary hover:border-primary hover:text-primary-foreground"
         onClick={onClone}
         title="Clone"
         aria-label="Clone"
       >
-        <Copy className="h-3 w-3" strokeWidth={2.5} />
+        <Copy className="h-3 w-3" strokeWidth={2.25} />
       </button>
-      <div className="font-medium">
-        <span className="mr-1">{emoji}</span>
-        {label}
-      </div>
-      {notes && (
-        <div className="mt-1 max-w-[150px] text-[10px] leading-snug text-white/60 break-words whitespace-normal">
-          {notes}
-        </div>
-      )}
       <Handle type="source" position={Position.Right} />
       <Handle type="target" position={Position.Left} />
     </div>

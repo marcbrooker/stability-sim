@@ -5,6 +5,7 @@ import {
   StepForward,
   Square,
   FastForward,
+  Shuffle,
 } from 'lucide-react';
 import { WorkerBridge } from '../engine/worker-bridge';
 import { useSimulationStore } from '../stores/simulation-store';
@@ -14,33 +15,33 @@ import type { Architecture, SimulationConfig } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
-import { Checkbox } from './ui/checkbox';
 import { Separator } from './ui/separator';
+import { Badge } from './ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from '@/lib/utils';
 
-const STATUS_COLORS: Record<string, string> = {
-  running: 'text-emerald-400',
-  paused: 'text-amber-400',
-  idle: 'text-muted-foreground',
-  completed: 'text-muted-foreground',
+const STATUS_VARIANT: Record<string, { label: string; className: string }> = {
+  running: { label: 'Running', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  paused: { label: 'Paused', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+  idle: { label: 'Idle', className: 'bg-muted text-muted-foreground border-border' },
+  completed: { label: 'Done', className: 'bg-muted text-muted-foreground border-border' },
 };
 
-interface IconButtonProps {
+interface IconBtnProps {
   onClick: () => void;
   disabled?: boolean;
   tooltip: string;
-  variant?: 'default' | 'primary';
+  primary?: boolean;
   children: React.ReactNode;
 }
 
-function IconButton({ onClick, disabled, tooltip, variant = 'default', children }: IconButtonProps) {
+function IconBtn({ onClick, disabled, tooltip, primary, children }: IconBtnProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          size="icon"
-          variant={variant === 'primary' ? 'default' : 'outline'}
+          size="iconSm"
+          variant={primary ? 'default' : 'ghost'}
           onClick={onClick}
           disabled={disabled}
           aria-label={tooltip}
@@ -214,29 +215,43 @@ export function SimulationControls() {
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
+  const statusInfo = STATUS_VARIANT[status] ?? STATUS_VARIANT.idle;
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <div className="flex items-center gap-1">
-        <IconButton onClick={handlePlay} disabled={isRunning} tooltip="Play / Resume" variant="primary">
+      {/* Transport */}
+      <div className="flex items-center gap-0.5 rounded-md bg-secondary/40 p-0.5">
+        <IconBtn onClick={handlePlay} disabled={isRunning} tooltip="Play / Resume" primary={!isRunning && status !== 'completed'}>
           <Play strokeWidth={2.5} />
-        </IconButton>
-        <IconButton onClick={handlePause} disabled={!isRunning} tooltip="Pause">
+        </IconBtn>
+        <IconBtn onClick={handlePause} disabled={!isRunning} tooltip="Pause">
           <Pause strokeWidth={2.5} />
-        </IconButton>
-        <IconButton onClick={handleStep} tooltip="Step (one event)">
+        </IconBtn>
+        <IconBtn onClick={handleStep} tooltip="Step (one event)">
           <StepForward strokeWidth={2.5} />
-        </IconButton>
-        <IconButton onClick={handleReset} tooltip="Reset">
+        </IconBtn>
+        <IconBtn onClick={handleReset} tooltip="Reset">
           <Square strokeWidth={2.5} />
-        </IconButton>
-        <IconButton
+        </IconBtn>
+        <IconBtn
           onClick={handleRunToEnd}
           disabled={isRunning || status === 'completed'}
           tooltip="Run to end (max speed)"
         >
           <FastForward strokeWidth={2.5} />
-        </IconButton>
+        </IconBtn>
+      </div>
+
+      <Separator orientation="vertical" />
+
+      {/* Status + clock */}
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className={cn('font-medium', statusInfo.className)}>
+          {statusInfo.label}
+        </Badge>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          t={currentTime.toFixed(2)}s
+        </span>
       </div>
 
       <Separator orientation="vertical" />
@@ -253,53 +268,60 @@ export function SimulationControls() {
           onValueChange={(v) => handleSpeedChange(v[0])}
           aria-label={`Speed ${speedMultiplier.toFixed(1)}×`}
         />
-        <span className="min-w-[36px] text-xs tabular-nums text-foreground">
+        <span className="min-w-[34px] text-xs tabular-nums">
           {speedMultiplier.toFixed(1)}×
         </span>
       </div>
 
       <Separator orientation="vertical" />
 
-      {/* Duration */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[11px] text-muted-foreground">Duration (s)</span>
-        <Input
-          type="number"
-          min={1}
-          value={endTime}
-          onChange={(e) => setEndTime(Number(e.target.value))}
-          disabled={isRunning || isPaused}
-          className="w-16 tabular-nums"
-        />
-      </div>
-
-      {/* Seed */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[11px] text-muted-foreground">Seed</span>
-        <Input
-          type="number"
-          value={seed}
-          onChange={(e) => setSeed(Number(e.target.value))}
-          disabled={isRunning || isPaused || randomSeed}
-          className="w-24 tabular-nums"
-        />
-        <label className="flex items-center gap-1 cursor-pointer" title="Use a random seed each run">
-          <Checkbox
-            checked={randomSeed}
-            onCheckedChange={(v) => setRandomSeed(v === true)}
+      {/* Run config: duration + seed grouped */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">Duration</span>
+          <Input
+            type="number"
+            min={1}
+            value={endTime}
+            onChange={(e) => setEndTime(Number(e.target.value))}
             disabled={isRunning || isPaused}
+            className="w-14 tabular-nums"
+            aria-label="Duration in seconds"
           />
-          <span className="text-[11px] text-muted-foreground">Random</span>
-        </label>
+          <span className="text-[11px] text-muted-foreground">s</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">Seed</span>
+          {randomSeed ? (
+            <span className="flex h-8 w-24 items-center justify-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground italic">
+              random
+            </span>
+          ) : (
+            <Input
+              type="number"
+              value={seed}
+              onChange={(e) => setSeed(Number(e.target.value))}
+              disabled={isRunning || isPaused}
+              className="w-24 tabular-nums"
+              aria-label="Seed"
+            />
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={randomSeed ? 'default' : 'outline'}
+                size="iconSm"
+                onClick={() => setRandomSeed((v) => !v)}
+                disabled={isRunning || isPaused}
+                aria-label="Toggle random seed"
+              >
+                <Shuffle strokeWidth={2.5} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{randomSeed ? 'Using random seed each run' : 'Click to use random seed'}</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
-
-      <Separator orientation="vertical" />
-
-      {/* Status */}
-      <span className="text-xs tabular-nums">
-        t={currentTime.toFixed(2)}s{' '}
-        <span className={cn('font-semibold', STATUS_COLORS[status])}>{status}</span>
-      </span>
     </div>
   );
 }
