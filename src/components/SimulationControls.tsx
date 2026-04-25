@@ -6,6 +6,7 @@ import {
   Square,
   FastForward,
   Shuffle,
+  Settings2,
 } from 'lucide-react';
 import { WorkerBridge } from '../engine/worker-bridge';
 import { useSimulationStore } from '../stores/simulation-store';
@@ -17,6 +18,7 @@ import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -218,9 +220,9 @@ export function SimulationControls() {
   const statusInfo = STATUS_VARIANT[status] ?? STATUS_VARIANT.idle;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 flex-nowrap">
       {/* Transport */}
-      <div className="flex items-center gap-0.5 rounded-md bg-secondary/40 p-0.5">
+      <div className="flex items-center gap-0.5 rounded-md bg-secondary/40 p-0.5 shrink-0">
         <IconBtn onClick={handlePlay} disabled={isRunning} tooltip="Play / Resume" primary={!isRunning && status !== 'completed'}>
           <Play strokeWidth={2.5} />
         </IconBtn>
@@ -245,11 +247,11 @@ export function SimulationControls() {
       <Separator orientation="vertical" />
 
       {/* Status + clock */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <Badge variant="outline" className={cn('font-medium', statusInfo.className)}>
           {statusInfo.label}
         </Badge>
-        <span className="text-xs tabular-nums text-muted-foreground">
+        <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
           t={currentTime.toFixed(2)}s
         </span>
       </div>
@@ -257,10 +259,9 @@ export function SimulationControls() {
       <Separator orientation="vertical" />
 
       {/* Speed */}
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] text-muted-foreground">Speed</span>
+      <div className="flex items-center gap-2 shrink-0">
         <Slider
-          className="w-24"
+          className="w-20"
           min={0.1}
           max={20}
           step={0.1}
@@ -268,60 +269,77 @@ export function SimulationControls() {
           onValueChange={(v) => handleSpeedChange(v[0])}
           aria-label={`Speed ${speedMultiplier.toFixed(1)}×`}
         />
-        <span className="min-w-[34px] text-xs tabular-nums">
+        <span className="min-w-[34px] text-xs tabular-nums text-muted-foreground">
           {speedMultiplier.toFixed(1)}×
         </span>
       </div>
 
       <Separator orientation="vertical" />
 
-      {/* Run config: duration + seed grouped */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground">Duration</span>
-          <Input
-            type="number"
-            min={1}
-            value={endTime}
-            onChange={(e) => setEndTime(Number(e.target.value))}
-            disabled={isRunning || isPaused}
-            className="w-14 tabular-nums"
-            aria-label="Duration in seconds"
-          />
-          <span className="text-[11px] text-muted-foreground">s</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground">Seed</span>
-          {randomSeed ? (
-            <span className="flex h-8 w-24 items-center justify-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground italic">
-              random
-            </span>
-          ) : (
-            <Input
-              type="number"
-              value={seed}
-              onChange={(e) => setSeed(Number(e.target.value))}
-              disabled={isRunning || isPaused}
-              className="w-24 tabular-nums"
-              aria-label="Seed"
-            />
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={randomSeed ? 'default' : 'outline'}
-                size="iconSm"
-                onClick={() => setRandomSeed((v) => !v)}
-                disabled={isRunning || isPaused}
-                aria-label="Toggle random seed"
-              >
-                <Shuffle strokeWidth={2.5} />
+      {/* Run config popover */}
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="iconSm" aria-label="Run configuration">
+                <Settings2 strokeWidth={2.25} />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>{randomSeed ? 'Using random seed each run' : 'Click to use random seed'}</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Run configuration (duration, seed)</TooltipContent>
+        </Tooltip>
+        <PopoverContent align="end" className="w-64">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Run configuration
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground w-16 shrink-0">Duration</label>
+              <Input
+                type="number"
+                min={1}
+                value={endTime}
+                onChange={(e) => setEndTime(Number(e.target.value))}
+                disabled={isRunning || isPaused}
+                className="flex-1 tabular-nums"
+                aria-label="Duration in seconds"
+              />
+              <span className="text-[11px] text-muted-foreground">s</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground w-16 shrink-0">Seed</label>
+              {randomSeed ? (
+                <span className="flex h-8 flex-1 items-center justify-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground italic">
+                  random each run
+                </span>
+              ) : (
+                <Input
+                  type="number"
+                  value={seed}
+                  onChange={(e) => setSeed(Number(e.target.value))}
+                  disabled={isRunning || isPaused}
+                  className="flex-1 tabular-nums"
+                  aria-label="Seed"
+                />
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={randomSeed ? 'default' : 'outline'}
+                    size="iconSm"
+                    onClick={() => setRandomSeed((v) => !v)}
+                    disabled={isRunning || isPaused}
+                    aria-label="Toggle random seed"
+                  >
+                    <Shuffle strokeWidth={2.5} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{randomSeed ? 'Using random seed each run' : 'Click to use random seed'}</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

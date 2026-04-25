@@ -271,8 +271,8 @@ function App() {
       <ReactFlowProvider>
         <div className="flex flex-col h-screen w-screen overflow-hidden text-foreground bg-background">
           {/* Top bar */}
-          <header className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card flex-shrink-0">
-            <span className="font-semibold text-sm tracking-tight text-foreground mr-1">
+          <header className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card flex-shrink-0 flex-nowrap min-w-0">
+            <span className="font-semibold text-sm tracking-tight text-foreground whitespace-nowrap shrink-0 hidden sm:inline">
               Stability Sim
             </span>
             <ExamplesMenu />
@@ -281,7 +281,7 @@ function App() {
             <Separator orientation="vertical" />
             <SaveLoadButtons />
             <span className="flex-1" />
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden lg:inline">
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden xl:inline">
               by{' '}
               <a
                 href="https://brooker.co.za/blog/"
