@@ -1,7 +1,18 @@
 import { useState } from 'react';
+import { ChevronDown, ChevronRight, Plus, X, Zap } from 'lucide-react';
 import { useSimulationStore } from '../stores/simulation-store';
 import { useArchitectureStore } from '../stores/architecture-store';
 import type { FailureScenario } from '../types';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
 type ScenarioType = FailureScenario['type'];
 
@@ -32,6 +43,12 @@ function describeScenario(
     case 'random-error':
       return `${(s.errorRate * 100).toFixed(0)}% errors on ${labelOf(s.targetId)} at t=${s.triggerTime} for ${s.duration}s`;
   }
+}
+
+function FieldLabel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={`text-[11px] font-medium text-muted-foreground ${className}`}>{children}</span>
+  );
 }
 
 export function FailureScenariosPanel() {
@@ -105,149 +122,167 @@ export function FailureScenariosPanel() {
   };
 
   return (
-    <div style={{ fontSize: 13, padding: '0 14px 14px' }}>
-      <div
-        style={{ cursor: 'pointer', fontWeight: 700, padding: '4px 0', userSelect: 'none', color: '#fff' }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? '▾' : '▸'} Failure Scenarios ({scenarios.length})
-      </div>
+    <div className="px-4 pb-4 border-t border-border pt-4">
+      <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <CollapsibleTrigger asChild>
+          <button
+            className="flex items-center gap-1.5 w-full text-left py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Toggle failure scenarios"
+          >
+            {expanded ? (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>Failure Scenarios</span>
+            {scenarios.length > 0 && (
+              <span className="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive/20 px-1.5 text-[10px] font-medium text-destructive">
+                {scenarios.length}
+              </span>
+            )}
+          </button>
+        </CollapsibleTrigger>
 
-      {expanded && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {/* Existing scenarios */}
+        <CollapsibleContent className="flex flex-col gap-2 mt-3">
           {scenarios.map((s, i) => (
             <div
               key={i}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: '#3a1a1a', padding: '7px 10px', borderRadius: 6,
-                border: '1px solid #6b3a3a',
-              }}
+              className="flex items-start gap-2 px-2.5 py-2 rounded-md bg-destructive/10 border border-destructive/30"
             >
-              <span style={{
-                fontSize: 13, lineHeight: 1, marginRight: 2,
-              }}>⚡</span>
-              <span style={{ flex: 1, color: '#e8c8c8', fontSize: 12 }}>{describeScenario(s, labelOf)}</span>
-              <button
-                className="sim-btn sim-btn-sm"
+              <Zap className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive" strokeWidth={2.5} />
+              <span className="flex-1 text-xs leading-snug text-foreground">
+                {describeScenario(s, labelOf)}
+              </span>
+              <Button
+                variant="ghost"
+                size="iconSm"
                 onClick={() => removeScenario(i)}
                 disabled={isRunning}
-                style={{ padding: '1px 6px', background: 'none' }}
-                title="Remove"
+                aria-label="Remove"
+                className="h-5 w-5 -mr-1 -mt-0.5 hover:bg-destructive/20"
               >
-                ✕
-              </button>
+                <X className="h-3 w-3" />
+              </Button>
             </div>
           ))}
 
-          {/* Add form */}
           {!isRunning && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <select
-                  className="sim-select"
-                  value={type}
-                  onChange={(e) => {
-                    setType(e.target.value as ScenarioType);
-                    setTargetId('');
-                  }}
-                  style={{ flex: 1 }}
-                >
+            <div className="flex flex-col gap-2 mt-2 rounded-md border border-border bg-secondary/30 p-2.5">
+              <Select value={type} onValueChange={(v) => { setType(v as ScenarioType); setTargetId(''); }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                   {(Object.keys(SCENARIO_LABELS) as ScenarioType[]).map((t) => (
-                    <option key={t} value={t}>{SCENARIO_LABELS[t]}</option>
+                    <SelectItem key={t} value={t}>{SCENARIO_LABELS[t]}</SelectItem>
                   ))}
-                </select>
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-2">
+                <FieldLabel className="min-w-11">Target</FieldLabel>
+                {targetOptions.length === 0 ? (
+                  <span className="text-xs text-muted-foreground italic flex-1">No targets available</span>
+                ) : (
+                  <Select
+                    value={targetId || targetOptions[0]?.value || ''}
+                    onValueChange={setTargetId}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {targetOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Target:</label>
-                <select
-                  className="sim-select"
-                  value={targetId || targetOptions[0]?.value || ''}
-                  onChange={(e) => setTargetId(e.target.value)}
-                  style={{ flex: 1 }}
-                >
-                  {targetOptions.length === 0 && (
-                    <option value="">No targets available</option>
-                  )}
-                  {targetOptions.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>At t=</label>
-                <input
-                  className="sim-input"
-                  type="number" min={0} step={0.1} value={triggerTime}
+              <div className="flex items-center gap-2">
+                <FieldLabel className="min-w-11">At t=</FieldLabel>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={triggerTime}
                   onChange={(e) => setTriggerTime(Number(e.target.value))}
-                  style={{ width: 56 }}
+                  className="w-16 tabular-nums"
                 />
-                <label className="sim-label" style={{ marginBottom: 0 }}>for</label>
-                <input
-                  className="sim-input"
-                  type="number" min={0.01} step={0.1} value={duration}
+                <FieldLabel>for</FieldLabel>
+                <Input
+                  type="number"
+                  min={0.01}
+                  step={0.1}
+                  value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  style={{ width: 56 }}
+                  className="w-16 tabular-nums"
                 />
-                <span style={{ fontSize: 11, color: '#8888aa' }}>s</span>
+                <FieldLabel>s</FieldLabel>
               </div>
 
               {type === 'latency-spike' && (
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Factor:</label>
-                  <input
-                    className="sim-input"
-                    type="number" min={1} step={1} value={factor}
+                <div className="flex items-center gap-2">
+                  <FieldLabel className="min-w-11">Factor</FieldLabel>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={factor}
                     onChange={(e) => setFactor(Number(e.target.value))}
-                    style={{ width: 56 }}
+                    className="w-16 tabular-nums"
                   />
-                  <span style={{ fontSize: 11, color: '#8888aa' }}>× latency</span>
+                  <FieldLabel>× latency</FieldLabel>
                 </div>
               )}
 
               {type === 'cpu-reduction' && (
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Cut:</label>
-                  <input
-                    className="sim-input"
-                    type="number" min={1} max={100} step={5} value={reductionPercent}
+                <div className="flex items-center gap-2">
+                  <FieldLabel className="min-w-11">Cut</FieldLabel>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={5}
+                    value={reductionPercent}
                     onChange={(e) => setReductionPercent(Number(e.target.value))}
-                    style={{ width: 56 }}
+                    className="w-16 tabular-nums"
                   />
-                  <span style={{ fontSize: 11, color: '#8888aa' }}>%</span>
+                  <FieldLabel>%</FieldLabel>
                 </div>
               )}
 
               {type === 'random-error' && (
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <label className="sim-label" style={{ minWidth: 44, marginBottom: 0 }}>Rate:</label>
-                  <input
-                    className="sim-input"
-                    type="number" min={0.01} max={1} step={0.05} value={errorRate}
+                <div className="flex items-center gap-2">
+                  <FieldLabel className="min-w-11">Rate</FieldLabel>
+                  <Input
+                    type="number"
+                    min={0.01}
+                    max={1}
+                    step={0.05}
+                    value={errorRate}
                     onChange={(e) => setErrorRate(Number(e.target.value))}
-                    style={{ width: 56 }}
+                    className="w-16 tabular-nums"
                   />
-                  <span style={{ fontSize: 11, color: '#8888aa' }}>
-                    ({(errorRate * 100).toFixed(0)}% of requests fail)
-                  </span>
+                  <FieldLabel>({(errorRate * 100).toFixed(0)}% of requests fail)</FieldLabel>
                 </div>
               )}
 
-              <button
-                className="sim-btn sim-btn-sm"
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={handleAdd}
                 disabled={targetOptions.length === 0}
-                style={{ alignSelf: 'flex-start' }}
+                className="self-start"
               >
-                + Add Failure
-              </button>
+                <Plus className="h-3.5 w-3.5" />
+                Add Failure
+              </Button>
             </div>
           )}
-        </div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

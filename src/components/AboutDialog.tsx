@@ -1,103 +1,133 @@
 import { useState } from 'react';
+import { Activity } from 'lucide-react';
+import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog';
+
+const READING_LIST = [
+  {
+    href: 'https://brooker.co.za/blog/2021/05/24/metastable.html',
+    title: 'Metastability and Distributed Systems',
+    author: 'Marc Brooker',
+  },
+  {
+    href: 'https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf',
+    title: 'Metastable Failures in Distributed Systems',
+    author: 'Bronson, Aghayev, Charapko & Zhu (HotOS 2021)',
+  },
+  {
+    href: 'https://www.usenix.org/conference/osdi22/presentation/huang-lexiang',
+    title: 'Metastable Failures in the Wild',
+    author: 'Huang et al. (OSDI 2022)',
+  },
+  {
+    href: 'https://brooker.co.za/blog/2022/02/28/retries.html',
+    title: 'Fixing Retries with Token Buckets and Circuit Breakers',
+    author: 'Marc Brooker',
+  },
+  {
+    href: 'https://aws.amazon.com/builders-library/avoiding-insurmountable-queue-backlogs/',
+    title: 'Avoiding Insurmountable Queue Backlogs',
+    author: 'AWS Builders Library',
+  },
+  {
+    href: 'https://sre.google/sre-book/addressing-cascading-failures/',
+    title: 'Addressing Cascading Failures',
+    author: 'Google SRE Book',
+  },
+];
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mt-4 mb-1.5">
+      {children}
+    </div>
+  );
+}
+
+function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary hover:underline"
+    >
+      {children}
+    </a>
+  );
+}
 
 export function AboutDialog() {
   const [open, setOpen] = useState(false);
 
   return (
-    <>
-      <button className="sim-btn sim-btn-sm" onClick={() => setOpen(true)}>
-        About
-      </button>
-      {open && (
-        <>
-          <div className="about-backdrop" onClick={() => setOpen(false)} />
-          <div className="about-dialog">
-            <div className="about-header">
-              <strong>Stability Sim</strong>
-              <button
-                className="sim-btn sim-btn-sm"
-                onClick={() => setOpen(false)}
-                style={{ padding: '1px 6px', background: 'none' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <p>
-              An interactive discrete-event simulator for exploring how distributed
-              systems fail. Build a topology, inject failures, and watch cascading
-              effects unfold in real time.
-            </p>
-
-            <p className="about-caveat">
-              This is an early experiment — the simulation models are intentionally
-              simplified to build intuition, not to replace production load testing.
-              Service times are sampled at request arrival rather than varying during
-              execution, network latency between components is zero, and load-dependent
-              latency uses a configurable curve rather than modeling the underlying
-              mechanism (GC, lock contention, etc.). These simplifications mean the
-              simulator is good for understanding <em>which</em> feedback loops cause
-              metastable failures and <em>why</em> they self-sustain, but its quantitative
-              predictions — exact tipping points, recovery times — will be optimistic.
-            </p>
-
-            <div className="about-section-title">Demo</div>
-            <p>
-              <a href="https://www.youtube.com/watch?v=ymud-sjJgnQ" target="_blank" rel="noopener noreferrer">
-                Watch the video walkthrough
-              </a>
-            </p>
-
-            <div className="about-section-title">More to read</div>
-            <ul className="about-links">
-              <li>
-                <a href="https://brooker.co.za/blog/2021/05/24/metastable.html" target="_blank" rel="noopener noreferrer">
-                  Metastability and Distributed Systems
-                </a>
-                {' — '}Marc Brooker
-              </li>
-              <li>
-                <a href="https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf" target="_blank" rel="noopener noreferrer">
-                  Metastable Failures in Distributed Systems
-                </a>
-                {' — '}Bronson, Aghayev, Charapko &amp; Zhu (HotOS 2021)
-              </li>
-              <li>
-                <a href="https://www.usenix.org/conference/osdi22/presentation/huang-lexiang" target="_blank" rel="noopener noreferrer">
-                  Metastable Failures in the Wild
-                </a>
-                {' — '}Huang et al. (OSDI 2022)
-              </li>
-              <li>
-                <a href="https://brooker.co.za/blog/2022/02/28/retries.html" target="_blank" rel="noopener noreferrer">
-                  Fixing Retries with Token Buckets and Circuit Breakers
-                </a>
-                {' — '}Marc Brooker
-              </li>
-              <li>
-                <a href="https://aws.amazon.com/builders-library/avoiding-insurmountable-queue-backlogs/" target="_blank" rel="noopener noreferrer">
-                  Avoiding Insurmountable Queue Backlogs
-                </a>
-                {' — '}AWS Builders Library
-              </li>
-              <li>
-                <a href="https://sre.google/sre-book/addressing-cascading-failures/" target="_blank" rel="noopener noreferrer">
-                  Addressing Cascading Failures
-                </a>
-                {' — '}Google SRE Book
-              </li>
-            </ul>
-
-            <div className="about-section-title">Contribute</div>
-            <p>
-              Source code and issues on{' '}
-              <a href="https://github.com/marcbrooker/stability-sim/" target="_blank" rel="noopener noreferrer">
-                GitHub
-              </a>.
-            </p>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm">
+          About
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <div className="flex items-center gap-2.5 mb-1">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-background"
+              aria-hidden="true"
+            >
+              <Activity className="h-4 w-4" strokeWidth={2.5} />
+            </span>
+            <DialogTitle className="text-lg">Stability Sim</DialogTitle>
           </div>
-        </>
-      )}
-    </>
+          <DialogDescription>
+            An interactive discrete-event simulator for exploring how distributed systems fail. Build
+            a topology, inject failures, and watch cascading effects unfold in real time.
+          </DialogDescription>
+        </DialogHeader>
+
+        <p className="text-sm text-muted-foreground italic leading-relaxed">
+          This is an early experiment — the simulation models are intentionally simplified to build
+          intuition, not to replace production load testing. Service times are sampled at request
+          arrival rather than varying during execution, network latency between components is zero,
+          and load-dependent latency uses a configurable curve rather than modeling the underlying
+          mechanism (GC, lock contention, etc.). These simplifications mean the simulator is good
+          for understanding <em>which</em> feedback loops cause metastable failures and{' '}
+          <em>why</em> they self-sustain, but its quantitative predictions — exact tipping points,
+          recovery times — will be optimistic.
+        </p>
+
+        <div>
+          <SectionTitle>Demo</SectionTitle>
+          <p className="text-sm">
+            <ExternalLink href="https://www.youtube.com/watch?v=ymud-sjJgnQ">
+              Watch the video walkthrough
+            </ExternalLink>
+          </p>
+
+          <SectionTitle>More to read</SectionTitle>
+          <ul className="space-y-1 text-sm">
+            {READING_LIST.map((entry) => (
+              <li key={entry.href}>
+                <ExternalLink href={entry.href}>{entry.title}</ExternalLink>
+                <span className="text-muted-foreground"> — {entry.author}</span>
+              </li>
+            ))}
+          </ul>
+
+          <SectionTitle>Contribute</SectionTitle>
+          <p className="text-sm">
+            Source code and issues on{' '}
+            <ExternalLink href="https://github.com/marcbrooker/stability-sim/">GitHub</ExternalLink>
+            .
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

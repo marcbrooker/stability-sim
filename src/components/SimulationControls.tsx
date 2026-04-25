@@ -1,27 +1,64 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Play,
+  Pause,
+  StepForward,
+  Square,
+  FastForward,
+  Shuffle,
+  Settings2,
+} from 'lucide-react';
 import { WorkerBridge } from '../engine/worker-bridge';
 import { useSimulationStore } from '../stores/simulation-store';
 import { useMetricsStore } from '../stores/metrics-store';
 import { useArchitectureStore } from '../stores/architecture-store';
 import type { Architecture, SimulationConfig } from '../types';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Slider } from './ui/slider';
+import { Separator } from './ui/separator';
+import { Badge } from './ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { cn } from '@/lib/utils';
 
-/**
- * Simulation Controls bar — play/pause/step/reset, speed control,
- * simulation config (end time, seed), and current status display.
- *
- * Creates and owns the WorkerBridge instance, wiring callbacks to
- * the Zustand stores (simulation-store, metrics-store).
- *
- * When a SimulationConfig has been loaded (via Load Config), its
- * failureScenarios, endTime, seed, and metricsWindowSize are used
- * when starting the simulation.
- *
- * Validates: Requirements 9.1, 11.5, 12.1, 12.2, 12.3, 12.4, 12.5
- */
+const STATUS_VARIANT: Record<string, { label: string; className: string }> = {
+  running: { label: 'Running', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  paused: { label: 'Paused', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+  idle: { label: 'Idle', className: 'bg-muted text-muted-foreground border-border' },
+  completed: { label: 'Done', className: 'bg-muted text-muted-foreground border-border' },
+};
+
+interface IconBtnProps {
+  onClick: () => void;
+  disabled?: boolean;
+  tooltip: string;
+  primary?: boolean;
+  children: React.ReactNode;
+}
+
+function IconBtn({ onClick, disabled, tooltip, primary, children }: IconBtnProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="iconSm"
+          variant={primary ? 'default' : 'ghost'}
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={tooltip}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function SimulationControls() {
   const bridgeRef = useRef<WorkerBridge | null>(null);
 
-  // Simulation store
   const status = useSimulationStore((s) => s.status);
   const currentTime = useSimulationStore((s) => s.currentTime);
   const speedMultiplier = useSimulationStore((s) => s.speedMultiplier);
@@ -30,15 +67,12 @@ export function SimulationControls() {
   const setCurrentTime = useSimulationStore((s) => s.setCurrentTime);
   const setSpeed = useSimulationStore((s) => s.setSpeed);
 
-  // Metrics store
   const resetMetrics = useMetricsStore((s) => s.reset);
 
-  // Config inputs — local overrides; loaded SimulationConfig takes precedence
   const [endTime, setEndTime] = useState(60);
   const [seed, setSeed] = useState(42);
   const [randomSeed, setRandomSeed] = useState(true);
 
-  // Sync local inputs when a SimulationConfig is loaded
   useEffect(() => {
     if (simulationConfig) {
       setEndTime(simulationConfig.endTime);
@@ -47,7 +81,6 @@ export function SimulationControls() {
     }
   }, [simulationConfig]);
 
-  /** Return the seed to use for the next run, generating a new one if randomSeed is on. */
   const getEffectiveSeed = useCallback((): number => {
     if (randomSeed) {
       const s = Math.floor(Math.random() * 2 ** 32);
@@ -57,35 +90,35 @@ export function SimulationControls() {
     return seed;
   }, [randomSeed, seed]);
 
-  /** Build the Architecture and SimulationConfig to send to the worker. */
-  const buildStartPayload = useCallback((effectiveSeed: number): { architecture: Architecture; config: SimulationConfig } => {
-    const arch = useArchitectureStore.getState();
-    const simStore = useSimulationStore.getState();
-    const loadedConfig = simStore.simulationConfig;
-    const storeScenarios = simStore.failureScenarios;
-    const architecture: Architecture = {
-      schemaVersion: 1,
-      name: arch.name || 'Untitled',
-      components: arch.components,
-      connections: arch.connections,
-    };
-    // Merge: loaded config scenarios + manually added scenarios from the store
-    const mergedScenarios = [
-      ...(loadedConfig?.failureScenarios ?? []),
-      ...storeScenarios,
-    ];
-    const config: SimulationConfig = {
-      schemaVersion: loadedConfig?.schemaVersion ?? 1,
-      name: loadedConfig?.name ?? 'default',
-      endTime,
-      metricsWindowSize: loadedConfig?.metricsWindowSize ?? 1,
-      failureScenarios: mergedScenarios,
-      seed: effectiveSeed,
-    };
-    return { architecture, config };
-  }, [endTime]);
+  const buildStartPayload = useCallback(
+    (effectiveSeed: number): { architecture: Architecture; config: SimulationConfig } => {
+      const arch = useArchitectureStore.getState();
+      const simStore = useSimulationStore.getState();
+      const loadedConfig = simStore.simulationConfig;
+      const storeScenarios = simStore.failureScenarios;
+      const architecture: Architecture = {
+        schemaVersion: 1,
+        name: arch.name || 'Untitled',
+        components: arch.components,
+        connections: arch.connections,
+      };
+      const mergedScenarios = [
+        ...(loadedConfig?.failureScenarios ?? []),
+        ...storeScenarios,
+      ];
+      const config: SimulationConfig = {
+        schemaVersion: loadedConfig?.schemaVersion ?? 1,
+        name: loadedConfig?.name ?? 'default',
+        endTime,
+        metricsWindowSize: loadedConfig?.metricsWindowSize ?? 1,
+        failureScenarios: mergedScenarios,
+        seed: effectiveSeed,
+      };
+      return { architecture, config };
+    },
+    [endTime],
+  );
 
-  // Lazily create the bridge on first use
   const getBridge = useCallback((): WorkerBridge => {
     if (!bridgeRef.current) {
       bridgeRef.current = new WorkerBridge({
@@ -109,7 +142,6 @@ export function SimulationControls() {
     return bridgeRef.current;
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       bridgeRef.current?.destroy();
@@ -135,13 +167,11 @@ export function SimulationControls() {
 
   const handlePause = useCallback(() => {
     getBridge().pause();
-    // Status will be set by onPaused callback
   }, [getBridge]);
 
   const handleStep = useCallback(() => {
     const bridge = getBridge();
     if (status === 'idle' || status === 'completed') {
-      // Need to start first
       const s = getEffectiveSeed();
       const { architecture, config } = buildStartPayload(s);
       resetMetrics();
@@ -187,89 +217,129 @@ export function SimulationControls() {
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
+  const statusInfo = STATUS_VARIANT[status] ?? STATUS_VARIANT.idle;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-      {/* Transport controls */}
-      <button className="transport-btn" onClick={handlePlay} disabled={isRunning} title="Play / Resume">
-        ▶
-      </button>
-      <button className="transport-btn" onClick={handlePause} disabled={!isRunning} title="Pause">
-        ⏸
-      </button>
-      <button className="transport-btn" onClick={handleStep} title="Step (one event)">
-        ⏭
-      </button>
-      <button className="transport-btn" onClick={handleReset} title="Reset">
-        ⏹
-      </button>
-      <button className="transport-btn" onClick={handleRunToEnd} disabled={isRunning || status === 'completed'} title="Run to end (max speed)">
-        ⏩
-      </button>
+    <div className="flex items-center gap-2 flex-nowrap">
+      {/* Transport */}
+      <div className="flex items-center gap-0.5 rounded-md bg-secondary/40 p-0.5 shrink-0">
+        <IconBtn onClick={handlePlay} disabled={isRunning} tooltip="Play / Resume" primary={!isRunning && status !== 'completed'}>
+          <Play strokeWidth={2.5} />
+        </IconBtn>
+        <IconBtn onClick={handlePause} disabled={!isRunning} tooltip="Pause">
+          <Pause strokeWidth={2.5} />
+        </IconBtn>
+        <IconBtn onClick={handleStep} tooltip="Step (one event)">
+          <StepForward strokeWidth={2.5} />
+        </IconBtn>
+        <IconBtn onClick={handleReset} tooltip="Reset">
+          <Square strokeWidth={2.5} />
+        </IconBtn>
+        <IconBtn
+          onClick={handleRunToEnd}
+          disabled={isRunning || status === 'completed'}
+          tooltip="Run to end (max speed)"
+        >
+          <FastForward strokeWidth={2.5} />
+        </IconBtn>
+      </div>
 
-      <span className="sep" />
+      <Separator orientation="vertical" />
+
+      {/* Status + clock */}
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge variant="outline" className={cn('font-medium', statusInfo.className)}>
+          {statusInfo.label}
+        </Badge>
+        <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+          t={currentTime.toFixed(2)}s
+        </span>
+      </div>
+
+      <Separator orientation="vertical" />
 
       {/* Speed */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontSize: 11, color: '#8888aa' }}>Speed</span>
-        <input
-          type="range"
+      <div className="flex items-center gap-2 shrink-0">
+        <Slider
+          className="w-20"
           min={0.1}
           max={20}
           step={0.1}
-          value={speedMultiplier}
-          onChange={(e) => handleSpeedChange(Number(e.target.value))}
-          style={{ width: 90 }}
+          value={[speedMultiplier]}
+          onValueChange={(v) => handleSpeedChange(v[0])}
+          aria-label={`Speed ${speedMultiplier.toFixed(1)}×`}
         />
-        <span style={{ minWidth: 36, fontSize: 13 }}>{speedMultiplier.toFixed(1)}×</span>
-      </label>
-
-      <span className="sep" />
-
-      {/* Config */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 11, color: '#8888aa' }}>Duration (s)</span>
-        <input
-          className="sim-input"
-          type="number"
-          min={1}
-          value={endTime}
-          onChange={(e) => setEndTime(Number(e.target.value))}
-          style={{ width: 68 }}
-          disabled={isRunning || isPaused}
-        />
-      </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 11, color: '#8888aa' }}>Seed</span>
-        <input
-          className="sim-input"
-          type="number"
-          value={seed}
-          onChange={(e) => setSeed(Number(e.target.value))}
-          style={{ width: 100 }}
-          disabled={isRunning || isPaused || randomSeed}
-        />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} title="Use a random seed each run">
-          <input
-            className="sim-checkbox"
-            type="checkbox"
-            checked={randomSeed}
-            onChange={(e) => setRandomSeed(e.target.checked)}
-            disabled={isRunning || isPaused}
-          />
-          <span style={{ fontSize: 11, color: '#8888aa' }}>Random</span>
-        </label>
-      </label>
-
-      <span className="sep" />
-
-      {/* Status */}
-      <span style={{ fontSize: 13 }}>
-        t={currentTime.toFixed(2)}s{' '}
-        <span className={`status-${status}`} style={{ fontWeight: 600 }}>
-          {status}
+        <span className="min-w-[34px] text-xs tabular-nums text-muted-foreground">
+          {speedMultiplier.toFixed(1)}×
         </span>
-      </span>
+      </div>
+
+      <Separator orientation="vertical" />
+
+      {/* Run config popover */}
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="iconSm" aria-label="Run configuration">
+                <Settings2 strokeWidth={2.25} />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Run configuration (duration, seed)</TooltipContent>
+        </Tooltip>
+        <PopoverContent align="end" className="w-64">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Run configuration
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground w-16 shrink-0">Duration</label>
+              <Input
+                type="number"
+                min={1}
+                value={endTime}
+                onChange={(e) => setEndTime(Number(e.target.value))}
+                disabled={isRunning || isPaused}
+                className="flex-1 tabular-nums"
+                aria-label="Duration in seconds"
+              />
+              <span className="text-[11px] text-muted-foreground">s</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground w-16 shrink-0">Seed</label>
+              {randomSeed ? (
+                <span className="flex h-8 flex-1 items-center justify-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground italic">
+                  random each run
+                </span>
+              ) : (
+                <Input
+                  type="number"
+                  value={seed}
+                  onChange={(e) => setSeed(Number(e.target.value))}
+                  disabled={isRunning || isPaused}
+                  className="flex-1 tabular-nums"
+                  aria-label="Seed"
+                />
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={randomSeed ? 'default' : 'outline'}
+                    size="iconSm"
+                    onClick={() => setRandomSeed((v) => !v)}
+                    disabled={isRunning || isPaused}
+                    aria-label="Toggle random seed"
+                  >
+                    <Shuffle strokeWidth={2.5} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{randomSeed ? 'Using random seed each run' : 'Click to use random seed'}</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
