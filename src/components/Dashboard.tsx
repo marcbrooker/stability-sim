@@ -23,6 +23,25 @@ import { Separator } from './ui/separator';
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#f97316'];
 
+/** Format a number for display in chart tooltips and Y-axis ticks.
+ *  Targets 3-4 significant digits across the typical range of values
+ *  produced by the simulator, avoiding ugly scientific notation for
+ *  the common cases. */
+function fmt(n: number): string {
+  if (!Number.isFinite(n)) return String(n);
+  if (n === 0) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 1000) return Math.round(n).toLocaleString();
+  if (abs >= 100) return n.toFixed(1);
+  if (abs >= 10) return n.toFixed(2);
+  if (abs >= 1) return n.toFixed(3);
+  if (abs >= 0.001) return n.toFixed(4);
+  return n.toExponential(2);
+}
+
+const tooltipFormatter = (value: unknown): string =>
+  typeof value === 'number' ? fmt(value) : String(value);
+
 const formatTimeTick = (value: number) => Math.round(value).toString();
 
 function isCumulativeMetric(name: string): boolean {
@@ -251,8 +270,8 @@ export function Dashboard() {
             <LineChart data={latencyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 8%)" />
               <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
-              <YAxis tick={RECHARTS_TICK_STYLE} />
-              <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
+              <YAxis tick={RECHARTS_TICK_STYLE} tickFormatter={fmt} width={44} />
+              <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} formatter={tooltipFormatter} labelFormatter={(t) => `t=${fmt(Number(t))}s`} />
               <Line type="linear" dataKey="p50" stroke="#2980b9" dot={false} strokeWidth={1.5} name="p50" />
               <Line type="linear" dataKey="p95" stroke="#f39c12" dot={false} strokeWidth={1.5} name="p95" />
               <Line type="linear" dataKey="p99" stroke="#e74c3c" dot={false} strokeWidth={1.5} name="p99" />
@@ -266,8 +285,8 @@ export function Dashboard() {
             <LineChart data={throughputData}>
               <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 8%)" />
               <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
-              <YAxis tick={RECHARTS_TICK_STYLE} />
-              <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
+              <YAxis tick={RECHARTS_TICK_STYLE} tickFormatter={fmt} width={44} />
+              <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} formatter={tooltipFormatter} labelFormatter={(t) => `t=${fmt(Number(t))}s`} />
               <Line type="linear" dataKey="completedPerSec" stroke="#27ae60" dot={false} strokeWidth={1.5} name="Completed/s" />
               <Line type="linear" dataKey="failedPerSec" stroke="#e74c3c" dot={false} strokeWidth={1.5} name="Failed/s" />
             </LineChart>
