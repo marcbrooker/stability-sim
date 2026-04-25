@@ -1,24 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Copy, X } from 'lucide-react';
 import { useArchitectureStore } from '../../stores/architecture-store';
 import { useUIStore } from '../../stores/ui-store';
-
-const hoverBtnStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: -8,
-  width: 18,
-  height: 18,
-  borderRadius: '50%',
-  background: '#2a2a4a',
-  border: '1.5px solid #3a3a5a',
-  color: '#8888aa',
-  fontSize: 10,
-  cursor: 'pointer',
-  padding: 0,
-  display: 'none',
-  lineHeight: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-};
 
 let cloneCounter = 0;
 
@@ -55,38 +38,31 @@ export function SimNode({
 
   return (
     <div
-      className="sim-node"
-      style={{
-        background: bg,
-        color: '#fff',
-        padding: '10px 16px',
-        borderRadius: 8,
-        border: `2px solid ${border}`,
-        minWidth: 120,
-        textAlign: 'center',
-        fontSize: 13,
-        position: 'relative',
-      }}
+      className="sim-node group relative min-w-[120px] rounded-lg border-2 px-4 py-2.5 text-center text-white text-sm shadow-md transition-shadow hover:shadow-lg"
+      style={{ background: bg, borderColor: border }}
     >
       <button
-        className="sim-node-hover-btn"
-        style={{ ...hoverBtnStyle, right: -8 }}
+        className="sim-node-hover-btn absolute -top-2 -right-2 hidden h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-destructive hover:border-destructive hover:text-destructive-foreground"
         onClick={onDelete}
         title="Delete"
+        aria-label="Delete"
       >
-        ✕
+        <X className="h-3 w-3" strokeWidth={3} />
       </button>
       <button
-        className="sim-node-hover-btn sim-node-clone"
-        style={{ ...hoverBtnStyle, right: 16 }}
+        className="sim-node-hover-btn absolute -top-2 right-4 hidden h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:bg-primary hover:border-primary hover:text-primary-foreground"
         onClick={onClone}
         title="Clone"
+        aria-label="Clone"
       >
-        ⧉
+        <Copy className="h-3 w-3" strokeWidth={2.5} />
       </button>
-      <div>{emoji} {label}</div>
+      <div className="font-medium">
+        <span className="mr-1">{emoji}</span>
+        {label}
+      </div>
       {notes && (
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3, lineHeight: 1.3, maxWidth: 150, wordWrap: 'break-word', whiteSpace: 'normal' }}>
+        <div className="mt-1 max-w-[150px] text-[10px] leading-snug text-white/60 break-words whitespace-normal">
           {notes}
         </div>
       )}

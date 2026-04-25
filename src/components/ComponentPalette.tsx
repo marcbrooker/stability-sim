@@ -17,36 +17,6 @@ const paletteItems: PaletteItem[] = [
   { type: 'throttle', label: 'Throttle', emoji: '🚦', color: '#e67e22' },
 ];
 
-const containerStyle: React.CSSProperties = {
-  padding: 12,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-};
-
-const headerStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  marginBottom: 4,
-  color: '#fff',
-};
-
-function itemStyle(color: string): React.CSSProperties {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '8px 12px',
-    background: color,
-    color: '#fff',
-    borderRadius: 6,
-    cursor: 'grab',
-    fontSize: 13,
-    fontWeight: 500,
-    userSelect: 'none',
-  };
-}
-
 export function ComponentPalette() {
   const onDragStart = (event: React.DragEvent, item: PaletteItem) => {
     event.dataTransfer.setData('application/stabilitysim-type', item.type);
@@ -55,16 +25,19 @@ export function ComponentPalette() {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>Components</div>
+    <div className="flex flex-col gap-1.5 p-3">
+      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+        Components
+      </div>
       {paletteItems.map((item) => (
         <div
           key={item.type}
-          style={itemStyle(item.color)}
+          className="flex items-center gap-2 px-3 py-2 rounded-md text-white text-sm font-medium cursor-grab active:cursor-grabbing select-none transition-transform hover:translate-x-0.5 hover:shadow-md"
+          style={{ background: item.color }}
           draggable
           onDragStart={(e) => onDragStart(e, item)}
         >
-          <span>{item.emoji}</span>
+          <span className="text-base leading-none">{item.emoji}</span>
           <span>{item.label}</span>
         </div>
       ))}

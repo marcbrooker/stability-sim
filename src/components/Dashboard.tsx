@@ -8,34 +8,43 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { Plus } from 'lucide-react';
 import { useMetricsStore } from '../stores/metrics-store';
 import { useSimulationStore } from '../stores/simulation-store';
 import { useArchitectureStore } from '../stores/architecture-store';
-
-/**
- * Dashboard panel — time-series charts for selected metrics,
- * metric selector, and simulation status display.
- *
- * Subscribes to the Metrics Store and re-renders as new snapshots arrive.
- *
- * Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5
- */
+import { Button } from './ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Separator } from './ui/separator';
+import { cn } from '@/lib/utils';
 
 // Matches the component palette colors from ComponentPalette.tsx
 const COLORS = ['#4a90d9', '#c0392b', '#27ae60', '#f39c12', '#8e44ad', '#e07b39'];
 
-/** Format X-axis time ticks as rounded integers */
+const STATUS_COLORS: Record<string, string> = {
+  running: 'text-emerald-400',
+  paused: 'text-amber-400',
+  idle: 'text-muted-foreground',
+  completed: 'text-muted-foreground',
+};
+
 const formatTimeTick = (value: number) => Math.round(value).toString();
 
-/** Returns true if a metric name represents a cumulative counter that should be shown as per-second */
 function isCumulativeMetric(name: string): boolean {
-  if (name === 'utilization' || name === 'queueDepth' || name === 'activeCount' ||
-      name === 'inFlightCount' || name === 'hitRate' || name === 'missRate' ||
-      name === 'crashed' || name === 'latencySpikeMultiplier' || name === 'cpuReductionPercent' ||
-      name === 'failedDownstreamCount' || name === 'tokenBucketTokens') {
+  if (
+    name === 'utilization' || name === 'queueDepth' || name === 'activeCount' ||
+    name === 'inFlightCount' || name === 'hitRate' || name === 'missRate' ||
+    name === 'crashed' || name === 'latencySpikeMultiplier' || name === 'cpuReductionPercent' ||
+    name === 'failedDownstreamCount' || name === 'tokenBucketTokens'
+  ) {
     return false;
   }
-  return true; // tpsForwarded, tpsProcessed, totalRejected, completedCount, failedCount, retriedCount, etc.
+  return true;
 }
 
 interface SelectedMetric {
@@ -43,8 +52,22 @@ interface SelectedMetric {
   metricName: string;
 }
 
+function ChartTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[11px] font-semibold text-foreground/80 mb-1">{children}</div>
+  );
+}
+
+const RECHARTS_TOOLTIP_STYLE = {
+  background: 'oklch(0.21 0.03 265)',
+  border: '1px solid oklch(0.32 0.03 265)',
+  borderRadius: 6,
+  fontSize: 12,
+};
+
+const RECHARTS_TICK_STYLE = { fontSize: 10, fill: 'oklch(0.7 0.03 260)' };
+
 export function Dashboard() {
-  // Subscribe to latestSnapshot as the change signal; read full array via getState()
   const latestSnapshot = useMetricsStore((s) => s.latestSnapshot);
   const currentTime = useSimulationStore((s) => s.currentTime);
   const speedMultiplier = useSimulationStore((s) => s.speedMultiplier);
@@ -55,7 +78,6 @@ export function Dashboard() {
   const [pickComponent, setPickComponent] = useState('');
   const [pickMetric, setPickMetric] = useState('');
 
-  // Derive available metrics: component list from architecture, metric names from latest snapshot
   const availableMetrics = useMemo(() => {
     const result: Record<string, string[]> = {};
     for (const comp of components) {
@@ -80,7 +102,6 @@ export function Dashboard() {
     setSelections((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
-  // Build chart data: per-second rates for cumulative metrics, raw values for point-in-time
   const chartData = useMemo(() => {
     const snapshots = useMetricsStore.getState().snapshots;
     if (snapshots.length === 0) return [];
@@ -104,7 +125,6 @@ export function Dashboard() {
     });
   }, [latestSnapshot, selections]);
 
-  // Group selections by metric name for separate chart panes
   const selectionGroups = useMemo(() => {
     const groups: Record<string, { selections: (SelectedMetric & { globalIndex: number })[]; metricName: string }> = {};
     selections.forEach((sel, i) => {
@@ -116,7 +136,6 @@ export function Dashboard() {
     return Object.values(groups);
   }, [selections]);
 
-  // Latency percentile chart data
   const latencyData = useMemo(() => {
     const snapshots = useMetricsStore.getState().snapshots;
     return snapshots.map((snap) => ({
@@ -127,7 +146,6 @@ export function Dashboard() {
     }));
   }, [latestSnapshot]);
 
-  // Throughput chart data — per-second rates computed from consecutive snapshot deltas
   const throughputData = useMemo(() => {
     const snapshots = useMetricsStore.getState().snapshots;
     if (snapshots.length === 0) return [];
@@ -135,7 +153,6 @@ export function Dashboard() {
     for (let i = 0; i < snapshots.length; i++) {
       const snap = snapshots[i];
       if (i === 0) {
-        // First snapshot: rate is count / time (or 0 if time is 0)
         const dt = snap.simTime || 1;
         result.push({
           time: snap.simTime,
@@ -157,7 +174,6 @@ export function Dashboard() {
     return result;
   }, [latestSnapshot]);
 
-  // Component label lookup
   const compLabel = useCallback(
     (id: string) => {
       const c = components.find((comp) => comp.id === id);
@@ -167,79 +183,87 @@ export function Dashboard() {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <strong style={{ color: '#fff', fontSize: 13 }}>Dashboard</strong>
-        <span style={{ fontSize: 11, color: '#8888aa' }}>
-          t={currentTime.toFixed(2)}s | {speedMultiplier.toFixed(1)}× | {status}
+    <div className="flex flex-col h-full gap-1">
+      <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
+        <strong className="text-foreground text-sm">Dashboard</strong>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          t={currentTime.toFixed(2)}s · {speedMultiplier.toFixed(1)}× ·{' '}
+          <span className={cn('font-medium', STATUS_COLORS[status])}>{status}</span>
         </span>
 
-        <span className="sep" />
+        <Separator orientation="vertical" />
 
-        {/* Metric selector */}
-        <select
-          className="sim-select sim-btn-sm"
+        <Select
           value={pickComponent}
-          onChange={(e) => {
-            setPickComponent(e.target.value);
+          onValueChange={(v) => {
+            setPickComponent(v);
             setPickMetric('');
           }}
         >
-          <option value="">Component…</option>
-          {Object.keys(availableMetrics).map((id) => (
-            <option key={id} value={id}>
-              {compLabel(id)}
-            </option>
-          ))}
-        </select>
-        <select
-          className="sim-select sim-btn-sm"
-          value={pickMetric}
-          onChange={(e) => setPickMetric(e.target.value)}
-          disabled={!pickComponent}
-        >
-          <option value="">Metric…</option>
-          {(availableMetrics[pickComponent] ?? []).map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <button className="sim-btn sim-btn-sm" onClick={addSelection} disabled={!pickComponent || !pickMetric}>
-          + Add
-        </button>
+          <SelectTrigger className="w-40 h-7 text-xs">
+            <SelectValue placeholder="Component…" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(availableMetrics).map((id) => (
+              <SelectItem key={id} value={id}>
+                {compLabel(id)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        {/* Active selections */}
-        {selections.map((sel, i) => (
-          <span
-            key={i}
-            className="metric-chip"
-            style={{
-              background: COLORS[i % COLORS.length] + '22',
-              border: `1px solid ${COLORS[i % COLORS.length]}`,
-              color: COLORS[i % COLORS.length],
-              cursor: 'pointer',
-            }}
-            onClick={() => removeSelection(i)}
-            title="Click to remove"
-          >
-            {compLabel(sel.componentId)}.{sel.metricName} ×
-          </span>
-        ))}
+        <Select value={pickMetric} onValueChange={setPickMetric} disabled={!pickComponent}>
+          <SelectTrigger className="w-44 h-7 text-xs">
+            <SelectValue placeholder="Metric…" />
+          </SelectTrigger>
+          <SelectContent>
+            {(availableMetrics[pickComponent] ?? []).map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={addSelection}
+          disabled={!pickComponent || !pickMetric}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add
+        </Button>
+
+        <div className="flex flex-wrap gap-1.5">
+          {selections.map((sel, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => removeSelection(i)}
+              title="Click to remove"
+              className="text-[11px] rounded px-2 py-0.5 cursor-pointer transition-opacity hover:opacity-70"
+              style={{
+                background: COLORS[i % COLORS.length] + '22',
+                border: `1px solid ${COLORS[i % COLORS.length]}`,
+                color: COLORS[i % COLORS.length],
+              }}
+            >
+              {compLabel(sel.componentId)}.{sel.metricName} ✕
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Charts row */}
-      <div style={{ display: 'flex', flex: 1, gap: 8, minHeight: 140, flexWrap: 'wrap' }}>
-        {/* Latency percentiles */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="dashboard-chart-title">Latency Percentiles</div>
+      <div className="flex flex-1 gap-3 min-h-[140px] flex-wrap">
+        <div className="flex-1 min-w-0">
+          <ChartTitle>Latency Percentiles</ChartTitle>
           <ResponsiveContainer width="100%" height="85%">
             <LineChart data={latencyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" tick={{ fontSize: 10 }} tickFormatter={formatTimeTick} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.03 265)" />
+              <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
+              <YAxis tick={RECHARTS_TICK_STYLE} />
+              <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
               <Line type="linear" dataKey="p50" stroke="#2980b9" dot={false} strokeWidth={1.5} name="p50" />
               <Line type="linear" dataKey="p95" stroke="#f39c12" dot={false} strokeWidth={1.5} name="p95" />
               <Line type="linear" dataKey="p99" stroke="#e74c3c" dot={false} strokeWidth={1.5} name="p99" />
@@ -247,33 +271,32 @@ export function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Throughput */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="dashboard-chart-title">Throughput (req/s)</div>
+        <div className="flex-1 min-w-0">
+          <ChartTitle>Throughput (req/s)</ChartTitle>
           <ResponsiveContainer width="100%" height="85%">
             <LineChart data={throughputData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" tick={{ fontSize: 10 }} tickFormatter={formatTimeTick} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.03 265)" />
+              <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
+              <YAxis tick={RECHARTS_TICK_STYLE} />
+              <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
               <Line type="linear" dataKey="completedPerSec" stroke="#27ae60" dot={false} strokeWidth={1.5} name="Completed/s" />
               <Line type="linear" dataKey="failedPerSec" stroke="#e74c3c" dot={false} strokeWidth={1.5} name="Failed/s" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Custom metric selections — one pane per unit group */}
         {selectionGroups.map((group) => (
-          <div key={group.metricName} style={{ flex: 1, minWidth: 0 }}>
-            <div className="dashboard-chart-title">
-              {group.metricName}{isCumulativeMetric(group.metricName) ? ' (/s)' : ''}
-            </div>
+          <div key={group.metricName} className="flex-1 min-w-0">
+            <ChartTitle>
+              {group.metricName}
+              {isCumulativeMetric(group.metricName) ? ' (/s)' : ''}
+            </ChartTitle>
             <ResponsiveContainer width="100%" height="85%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" tick={{ fontSize: 10 }} tickFormatter={formatTimeTick} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.32 0.03 265)" />
+                <XAxis dataKey="time" tick={RECHARTS_TICK_STYLE} tickFormatter={formatTimeTick} />
+                <YAxis tick={RECHARTS_TICK_STYLE} />
+                <Tooltip contentStyle={RECHARTS_TOOLTIP_STYLE} />
                 {group.selections.map((sel) => (
                   <Line
                     key={sel.globalIndex}

@@ -5,6 +5,14 @@ import { useMetricsStore } from '../stores/metrics-store';
 import { encodeScenario } from '../persistence/url-codec';
 import { migrate, CURRENT_VERSION } from '../persistence/migrate';
 import type { Architecture, SimulationConfig } from '../types';
+import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 
 interface SavedScenario {
   schemaVersion: number;
@@ -14,12 +22,10 @@ interface SavedScenario {
 
 /**
  * Migrate (if needed) and validate a loaded scenario before putting it into stores.
- * Throws descriptive errors for common issues (missing fields, wrong types).
  */
 export function validateScenario(data: unknown): SavedScenario {
   const obj = migrate(data);
 
-  // Architecture
   if (!obj.architecture || typeof obj.architecture !== 'object') {
     throw new Error('Missing or invalid "architecture" field');
   }
@@ -40,7 +46,6 @@ export function validateScenario(data: unknown): SavedScenario {
     }
   }
 
-  // SimulationConfig
   if (!obj.simulationConfig || typeof obj.simulationConfig !== 'object') {
     throw new Error('Missing or invalid "simulationConfig" field');
   }
@@ -49,14 +54,12 @@ export function validateScenario(data: unknown): SavedScenario {
     throw new Error('simulationConfig.endTime must be a number');
   }
   if (!Array.isArray(config.failureScenarios)) {
-    // Tolerate missing failureScenarios — default to empty
     (config as Record<string, unknown>).failureScenarios = [];
   }
 
   return data as SavedScenario;
 }
 
-/** Build the current scenario object from stores */
 export function buildScenario(): SavedScenario {
   const { name, components, connections } = useArchitectureStore.getState();
   const simStore = useSimulationStore.getState();
@@ -79,7 +82,6 @@ export function buildScenario(): SavedScenario {
   };
 }
 
-/** Load a validated scenario into the stores, resetting simulation state */
 export function loadScenarioIntoStores(scenario: SavedScenario): void {
   const arch = scenario.architecture;
   const config = scenario.simulationConfig;
@@ -173,39 +175,29 @@ export function SaveLoadButtons() {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button className="sim-btn" onClick={handleSave} title="Save scenario to JSON file">
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="sm" onClick={handleSave} title="Save scenario to JSON file">
           Save
-        </button>
-        <button className="sim-btn" onClick={handleLoad} title="Load scenario from JSON file">
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleLoad} title="Load scenario from JSON file">
           Load
-        </button>
-        <button className="sim-btn" onClick={handleShare} title="Copy shareable URL to clipboard">
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleShare} title="Copy shareable URL to clipboard">
           {shareLabel}
-        </button>
+        </Button>
       </div>
-      {loadError && (
-        <>
-          <div className="about-backdrop" onClick={() => setLoadError(null)} />
-          <div className="about-dialog">
-            <div className="about-header">
-              <strong>Failed to load scenario</strong>
-              <button
-                className="sim-btn sim-btn-sm"
-                onClick={() => setLoadError(null)}
-                style={{ padding: '1px 6px', background: 'none' }}
-              >
-                ✕
-              </button>
-            </div>
-            <p style={{ color: '#e8c8c8' }}>{loadError}</p>
-            <p className="about-caveat">
-              This can happen when loading a file saved with an older version of the simulator.
-              The format may have changed since the file was created.
-            </p>
-          </div>
-        </>
-      )}
+      <Dialog open={!!loadError} onOpenChange={(open) => !open && setLoadError(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Failed to load scenario</DialogTitle>
+            <DialogDescription className="text-destructive">{loadError}</DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground italic">
+            This can happen when loading a file saved with an older version of the simulator.
+            The format may have changed since the file was created.
+          </p>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

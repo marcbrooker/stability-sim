@@ -11,8 +11,6 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import './App.css';
 
 import { useArchitectureStore } from './stores/architecture-store';
 import { useUIStore } from './stores/ui-store';
@@ -29,6 +27,15 @@ import { findExampleById } from './examples';
 import { loadExample } from './examples/load-example';
 import { decodeScenario } from './persistence/url-codec';
 import { validateScenario, loadScenarioIntoStores } from './components/SaveLoadButtons';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './components/ui/dialog';
+import { Separator } from './components/ui/separator';
+import { TooltipProvider } from './components/ui/tooltip';
 import type { ComponentConfig, ComponentType } from './types';
 
 /** Generate a simple unique id */
@@ -93,7 +100,6 @@ function FlowCanvas() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
 
-  // Convert store components to React Flow nodes
   const nodes: Node[] = useMemo(
     () =>
       components.map((c) => ({
@@ -105,7 +111,6 @@ function FlowCanvas() {
     [components],
   );
 
-  // Convert store connections to React Flow edges
   const edges: Edge[] = useMemo(
     () =>
       connections.map((c) => ({
@@ -117,7 +122,6 @@ function FlowCanvas() {
     [connections],
   );
 
-  // Handle node position changes (drag)
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       const positionChanges = changes.filter(
@@ -136,7 +140,6 @@ function FlowCanvas() {
     [],
   );
 
-  // Handle new connections — validate that the connection makes sense
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
@@ -145,11 +148,8 @@ function FlowCanvas() {
       const source = comps.find((c) => c.id === connection.source);
       if (!target || !source) return;
 
-      // Clients don't accept incoming connections
       if (target.type === 'client') return;
-      // Databases are terminal — can't be a source
       if (source.type === 'database') return;
-      // Queues support only one downstream
       if (source.type === 'queue') {
         const conns = useArchitectureStore.getState().connections;
         if (conns.some((c) => c.sourceId === source.id)) return;
@@ -164,7 +164,6 @@ function FlowCanvas() {
     [addConnection],
   );
 
-  // Handle drop from palette
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -196,7 +195,7 @@ function FlowCanvas() {
   );
 
   return (
-    <div className="app-canvas" ref={reactFlowWrapper}>
+    <div className="flex-1 relative bg-[oklch(0.14_0.025_265)]" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -221,13 +220,12 @@ function FlowCanvas() {
 }
 
 function App() {
-  const [dashHeight, setDashHeight] = useState(200);
+  const [dashHeight, setDashHeight] = useState(220);
   const [urlLoadError, setUrlLoadError] = useState<string | null>(null);
   const dragging = useRef(false);
   const startY = useRef(0);
   const startH = useRef(0);
 
-  // Load scenario from URL query params on mount
   // ?s= (shared scenario) takes priority over ?example=
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -269,61 +267,85 @@ function App() {
   }, [dashHeight]);
 
   return (
-    <ReactFlowProvider>
-      <div className="app-layout">
-        <div className="app-topbar">
-          <span className="app-topbar-title">Stability Sim</span>
-          <ExamplesMenu />
-          <span className="sep" />
-          <SimulationControls />
-          <span className="sep" />
-          <SaveLoadButtons />
-          <span style={{ flex: 1 }} />
-          <span className="app-topbar-links">
-            made by <a href="https://brooker.co.za/blog/" target="_blank" rel="noopener noreferrer">Marc Brooker</a>
-            {' · '}
-            <a href="https://github.com/marcbrooker/stability-sim/" target="_blank" rel="noopener noreferrer">contribute on GitHub</a>
-          </span>
-          <AboutDialog />
-        </div>
-        <div className="app-body">
-          <div className="app-sidebar-left">
-            <ComponentPalette />
-          </div>
-          <FlowCanvas />
-          <div className="app-sidebar-right">
-            <PropertiesPanel />
-            <FailureScenariosPanel />
-          </div>
-        </div>
-        <div
-          className="app-dashboard-resize-handle"
-          onMouseDown={onDragStart}
-        />
-        <div className="app-dashboard" style={{ height: dashHeight }}><Dashboard /></div>
-      </div>
-      {urlLoadError && (
-        <>
-          <div className="about-backdrop" onClick={() => setUrlLoadError(null)} />
-          <div className="about-dialog">
-            <div className="about-header">
-              <strong>Failed to load shared scenario</strong>
-              <button
-                className="sim-btn sim-btn-sm"
-                onClick={() => setUrlLoadError(null)}
-                style={{ padding: '1px 6px', background: 'none' }}
+    <TooltipProvider delayDuration={300}>
+      <ReactFlowProvider>
+        <div className="flex flex-col h-screen w-screen overflow-hidden text-foreground bg-background">
+          {/* Top bar */}
+          <header className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card flex-shrink-0">
+            <span className="font-bold text-base tracking-tight text-foreground mr-1">
+              Stability Sim
+            </span>
+            <ExamplesMenu />
+            <Separator orientation="vertical" />
+            <SimulationControls />
+            <Separator orientation="vertical" />
+            <SaveLoadButtons />
+            <span className="flex-1" />
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden md:inline">
+              made by{' '}
+              <a
+                href="https://brooker.co.za/blog/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
               >
-                ✕
-              </button>
-            </div>
-            <p style={{ color: '#e8c8c8' }}>{urlLoadError}</p>
-            <p className="about-caveat">
+                Marc Brooker
+              </a>
+              {' · '}
+              <a
+                href="https://github.com/marcbrooker/stability-sim/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                contribute on GitHub
+              </a>
+            </span>
+            <AboutDialog />
+          </header>
+
+          {/* Body */}
+          <div className="flex flex-1 min-h-0">
+            <aside className="w-44 bg-card border-r border-border flex-shrink-0 overflow-y-auto">
+              <ComponentPalette />
+            </aside>
+            <FlowCanvas />
+            <aside className="w-[340px] bg-card border-l border-border flex-shrink-0 overflow-y-auto">
+              <PropertiesPanel />
+              <FailureScenariosPanel />
+            </aside>
+          </div>
+
+          {/* Resize handle */}
+          <div
+            className="h-1.5 bg-border hover:bg-accent cursor-ns-resize flex-shrink-0 transition-colors"
+            onMouseDown={onDragStart}
+          />
+
+          {/* Dashboard */}
+          <div
+            className="bg-card border-t border-border flex-shrink-0 px-4 py-3 overflow-y-auto"
+            style={{ height: dashHeight }}
+          >
+            <Dashboard />
+          </div>
+        </div>
+
+        <Dialog open={!!urlLoadError} onOpenChange={(open) => !open && setUrlLoadError(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Failed to load shared scenario</DialogTitle>
+              <DialogDescription className="text-destructive">
+                {urlLoadError}
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground italic">
               The shared URL may be corrupted, truncated, or from a newer version of the simulator.
             </p>
-          </div>
-        </>
-      )}
-    </ReactFlowProvider>
+          </DialogContent>
+        </Dialog>
+      </ReactFlowProvider>
+    </TooltipProvider>
   );
 }
 
