@@ -12,6 +12,8 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 
+import { Activity } from 'lucide-react';
+
 import { useArchitectureStore } from './stores/architecture-store';
 import { useUIStore } from './stores/ui-store';
 import { nodeTypes } from './components/nodes';
@@ -271,10 +273,18 @@ function App() {
       <ReactFlowProvider>
         <div className="flex flex-col h-screen w-screen overflow-hidden text-foreground bg-background">
           {/* Top bar */}
-          <header className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card flex-shrink-0 flex-nowrap min-w-0">
-            <span className="font-semibold text-sm tracking-tight text-foreground whitespace-nowrap shrink-0 hidden sm:inline">
-              Stability Sim
-            </span>
+          <header className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card flex-shrink-0 flex-nowrap min-w-0">
+            <div className="flex items-center gap-2 shrink-0 mr-1">
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground text-background"
+                aria-hidden="true"
+              >
+                <Activity className="h-4 w-4" strokeWidth={2.5} />
+              </span>
+              <span className="font-semibold text-base tracking-tight text-foreground whitespace-nowrap hidden sm:inline">
+                Stability Sim
+              </span>
+            </div>
             <ExamplesMenu />
             <Separator orientation="vertical" />
             <SimulationControls />

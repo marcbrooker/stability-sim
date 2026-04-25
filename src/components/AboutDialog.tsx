@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Activity } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -75,7 +76,15 @@ export function AboutDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Stability Sim</DialogTitle>
+          <div className="flex items-center gap-2.5 mb-1">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-background"
+              aria-hidden="true"
+            >
+              <Activity className="h-4 w-4" strokeWidth={2.5} />
+            </span>
+            <DialogTitle className="text-lg">Stability Sim</DialogTitle>
+          </div>
           <DialogDescription>
             An interactive discrete-event simulator for exploring how distributed systems fail. Build
             a topology, inject failures, and watch cascading effects unfold in real time.
