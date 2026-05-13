@@ -11,6 +11,11 @@ const basicServerConfig: ServerConfig = {
   concurrencyLimit: 4,
 };
 
+function makeNextId(): () => string {
+  let id = 0;
+  return () => 't' + String(++id);
+}
+
 function createComponents(...servers: Server[]): Map<string, SimComponent> {
   const map = new Map<string, SimComponent>();
   for (const s of servers) {
@@ -31,7 +36,7 @@ describe('FailureInjector', () => {
         recoveryTime: 200,
       };
 
-      injector.scheduleFailures([scenario], (e) => scheduled.push(e));
+      injector.scheduleFailures([scenario], (e) => scheduled.push(e), makeNextId());
 
       expect(scheduled).toHaveLength(2);
 
@@ -58,7 +63,7 @@ describe('FailureInjector', () => {
         factor: 5,
       };
 
-      injector.scheduleFailures([scenario], (e) => scheduled.push(e));
+      injector.scheduleFailures([scenario], (e) => scheduled.push(e), makeNextId());
 
       const inject = scheduled.find((e) => e.kind === 'failure-inject')!;
       const recover = scheduled.find((e) => e.kind === 'failure-recover')!;
@@ -80,7 +85,7 @@ describe('FailureInjector', () => {
         reductionPercent: 50,
       };
 
-      injector.scheduleFailures([scenario], (e) => scheduled.push(e));
+      injector.scheduleFailures([scenario], (e) => scheduled.push(e), makeNextId());
 
       const inject = scheduled.find((e) => e.kind === 'failure-inject')!;
       const recover = scheduled.find((e) => e.kind === 'failure-recover')!;
@@ -101,7 +106,7 @@ describe('FailureInjector', () => {
         duration: 40,
       };
 
-      injector.scheduleFailures([scenario], (e) => scheduled.push(e));
+      injector.scheduleFailures([scenario], (e) => scheduled.push(e), makeNextId());
 
       const inject = scheduled.find((e) => e.kind === 'failure-inject')!;
       const recover = scheduled.find((e) => e.kind === 'failure-recover')!;
@@ -121,7 +126,7 @@ describe('FailureInjector', () => {
         { type: 'latency-spike', targetId: 'srv-2', triggerTime: 30, duration: 10, factor: 2 },
       ];
 
-      injector.scheduleFailures(scenarios, (e) => scheduled.push(e));
+      injector.scheduleFailures(scenarios, (e) => scheduled.push(e), makeNextId());
 
       expect(scheduled).toHaveLength(4); // 2 pairs
     });
@@ -137,6 +142,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'server-crash', targetId: 'srv-1', triggerTime: 100, recoveryTime: 200 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const injectEvent = scheduled.find((e) => e.kind === 'failure-inject')!;
@@ -154,6 +160,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'server-crash', targetId: 'srv-1', triggerTime: 100, recoveryTime: 200 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const injectEvent = scheduled.find((e) => e.kind === 'failure-inject')!;
@@ -177,6 +184,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'latency-spike', targetId: 'srv-1', triggerTime: 50, duration: 30, factor: 5 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const injectEvent = scheduled.find((e) => e.kind === 'failure-inject')!;
@@ -194,6 +202,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'latency-spike', targetId: 'srv-1', triggerTime: 50, duration: 30, factor: 5 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const [inject, recover] = [
@@ -218,6 +227,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'cpu-reduction', targetId: 'srv-1', triggerTime: 10, duration: 20, reductionPercent: 75 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const injectEvent = scheduled.find((e) => e.kind === 'failure-inject')!;
@@ -235,6 +245,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'cpu-reduction', targetId: 'srv-1', triggerTime: 10, duration: 20, reductionPercent: 75 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const [inject, recover] = [
@@ -258,6 +269,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'network-partition', connectionId: 'conn-1', triggerTime: 60, duration: 40 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       expect(injector.isConnectionDisabled('conn-1')).toBe(false);
@@ -276,6 +288,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'network-partition', connectionId: 'conn-1', triggerTime: 60, duration: 40 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const [inject, recover] = [
@@ -300,6 +313,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'network-partition', connectionId: 'conn-1', triggerTime: 0, duration: 100 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const injectEvent = scheduled.find((e) => e.kind === 'failure-inject')!;
@@ -316,7 +330,7 @@ describe('FailureInjector', () => {
       const injector = new FailureInjector();
       const scheduled: SimEvent[] = [];
 
-      injector.scheduleFailures([], (e) => scheduled.push(e));
+      injector.scheduleFailures([], (e) => scheduled.push(e), makeNextId());
       expect(scheduled).toHaveLength(0);
     });
 
@@ -328,6 +342,7 @@ describe('FailureInjector', () => {
       injector.scheduleFailures(
         [{ type: 'server-crash', targetId: 'missing-srv', triggerTime: 10, recoveryTime: 20 }],
         (e) => scheduled.push(e),
+        makeNextId(),
       );
 
       const injectEvent = scheduled.find((e) => e.kind === 'failure-inject')!;

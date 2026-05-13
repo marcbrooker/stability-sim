@@ -38,6 +38,7 @@ export class SeededRNG {
    * splitmix32: a simple 32-bit state hash used to expand a seed.
    */
   private splitmix32(state: number): number {
+    // Constants are the Murmur3 finalization mix constants (golden ratio, mixing factors)
     state = (state + 0x9e3779b9) | 0;
     let z = state;
     z = Math.imul(z ^ (z >>> 16), 0x85ebca6b);

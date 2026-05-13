@@ -13,6 +13,7 @@ function createMockContext(overrides: Partial<SimContext> = {}): SimContext & { 
     getComponent: (_id: string) => { throw new Error('not implemented'); },
     getDownstream: overrides.getDownstream ?? ((_id: string) => ['downstream-1']),
     random: overrides.random ?? (() => 0.5),
+    nextId: (() => { let id = 0; return () => 't' + String(++id); })(),
     recordMetric: overrides.recordMetric ?? ((_cid, _name, _val, _time) => {}),
     ...overrides,
     _scheduledEvents: scheduledEvents,
@@ -86,6 +87,31 @@ describe('Queue component', () => {
 
       // originClientId is rewritten to queue ID for routing back
       expect(ctx._scheduledEvents[0].workUnit.originClientId).toBe('q-1');
+    });
+  });
+
+  describe('LIFO ordering', () => {
+    it('dequeues the most recently enqueued item first', () => {
+      const config: QueueConfig = { maxCapacity: 10, maxConcurrency: 1, ordering: 'lifo' };
+      const queue = new Queue('q-1', config);
+      const ctx = createMockContext();
+
+      // First arrival goes downstream immediately (concurrency=1)
+      queue.handleEvent(createArrival('q-1', createWorkUnit('wu-1')), ctx);
+      // Next two buffer (concurrency full)
+      queue.handleEvent(createArrival('q-1', createWorkUnit('wu-2')), ctx);
+      queue.handleEvent(createArrival('q-1', createWorkUnit('wu-3')), ctx);
+
+      expect(ctx._scheduledEvents).toHaveLength(1);
+      expect(ctx._scheduledEvents[0].workUnit.id).toBe('wu-1');
+
+      // Departure frees a slot — LIFO should dequeue wu-3 (last in)
+      const depWu = { ...createWorkUnit('wu-1'), originClientId: 'q-1' };
+      const ctx2 = createMockContext({ currentTime: 1 });
+      queue.handleEvent(createDeparture('q-1', depWu, 1, false), ctx2);
+
+      expect(ctx2._scheduledEvents).toHaveLength(1);
+      expect(ctx2._scheduledEvents[0].workUnit.id).toBe('wu-3');
     });
   });
 

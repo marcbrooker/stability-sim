@@ -13,6 +13,7 @@ function createMockContext(overrides: Partial<SimContext> = {}): SimContext & { 
     getComponent: (_id: string) => { throw new Error('not implemented'); },
     getDownstream: overrides.getDownstream ?? ((_id: string) => ['server-1', 'server-2', 'server-3']),
     random: overrides.random ?? (() => 0.5),
+    nextId: (() => { let id = 0; return () => 't' + String(++id); })(),
     recordMetric: overrides.recordMetric ?? ((_cid, _name, _val, _time) => {}),
     ...overrides,
     _scheduledEvents: scheduledEvents,

@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent } from '../../types/events';
 import type {
   SimComponent,
@@ -130,7 +129,8 @@ export class Queue implements SimComponent {
   }
 
   /**
-   * Dequeue the front item and send it as an arrival to the downstream component.
+   * Dequeue the next item (FIFO: front, LIFO: back) and send it as an arrival
+   * to the downstream component.
    * Respects maxConcurrency: won't send if already at the in-flight limit.
    */
   private sendNextToDownstream(context: SimContext): SimEvent[] {
@@ -147,11 +147,17 @@ export class Queue implements SimComponent {
       return [];
     }
 
-    // O(1) dequeue via head pointer; compact when head passes halfway
-    const next = this.buffer[this.bufferHead++];
-    if (this.bufferHead > this.buffer.length / 2) {
-      this.buffer = this.buffer.slice(this.bufferHead);
-      this.bufferHead = 0;
+    let next: SimEvent;
+    if (this.queueConfig.ordering === 'lifo') {
+      // LIFO: pop from the back
+      next = this.buffer.pop()!;
+    } else {
+      // FIFO (default): dequeue from front via head pointer; compact when head passes halfway
+      next = this.buffer[this.bufferHead++];
+      if (this.bufferHead > this.buffer.length / 2) {
+        this.buffer = this.buffer.slice(this.bufferHead);
+        this.bufferHead = 0;
+      }
     }
     this.totalDequeued++;
     this.inFlightCount++;
@@ -161,7 +167,7 @@ export class Queue implements SimComponent {
     this.pendingOrigins.set(next.workUnit.id, next.workUnit.originClientId);
 
     const arrivalEvent: SimEvent = {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: downstreamIds[0],
       workUnit: { ...next.workUnit, originClientId: this.id },

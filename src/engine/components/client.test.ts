@@ -4,6 +4,10 @@ import type { SimEvent, WorkUnit } from '../../types/events';
 import type { SimContext } from '../../types/components';
 import type { ClientConfig } from '../../types/configs';
 
+/** Shared ID counter across all mock contexts within a test file */
+let _testIdCounter = 0;
+function testNextId(): string { return 't' + String(++_testIdCounter); }
+
 /** Create a minimal SimContext for testing */
 function createMockContext(overrides: Partial<SimContext> = {}): SimContext {
   let randomValue = 0.5;
@@ -17,6 +21,7 @@ function createMockContext(overrides: Partial<SimContext> = {}): SimContext {
       // Return a deterministic value for testing
       return overrides.random ? overrides.random() : randomValue;
     },
+    nextId: testNextId,
     recordMetric: overrides.recordMetric ?? ((_cid, _name, _val, _time) => {}),
     ...overrides,
   };

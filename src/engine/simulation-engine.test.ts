@@ -395,7 +395,7 @@ describe('SimulationEngine', () => {
         triggerTime: 0,
         duration: 50,
       };
-      injector.scheduleFailures([scenario], (e) => engine.scheduleEvent(e));
+      injector.scheduleFailures([scenario], (e) => engine.scheduleEvent(e), () => engine.nextId());
 
       // Schedule an arrival at comp-a at t=5 (during partition)
       engine.scheduleEvent(makeEvent({ id: 'trigger', timestamp: 5, targetComponentId: 'comp-a' }));
@@ -452,7 +452,7 @@ describe('SimulationEngine', () => {
         connectionId: 'conn-ab',
         triggerTime: 0,
         duration: 50,
-      }], (e) => engine.scheduleEvent(e));
+      }], (e) => engine.scheduleEvent(e), () => engine.nextId());
 
       // Send arrival to comp-b at t=5 — it will try to respond to comp-a
       engine.scheduleEvent(makeEvent({ id: 'trigger', timestamp: 5, targetComponentId: 'comp-b' }));
@@ -509,7 +509,7 @@ describe('SimulationEngine', () => {
         connectionId: 'conn-ab',
         triggerTime: 0,
         duration: 10,
-      }], (e) => engine.scheduleEvent(e));
+      }], (e) => engine.scheduleEvent(e), () => engine.nextId());
 
       // Event during partition (should be dropped)
       engine.scheduleEvent(makeEvent({ id: 'during', timestamp: 5, targetComponentId: 'comp-a' }));
@@ -561,7 +561,7 @@ describe('SimulationEngine', () => {
         connectionId: 'conn-ab',
         triggerTime: 0,
         duration: 50,
-      }], (e) => engine.scheduleEvent(e));
+      }], (e) => engine.scheduleEvent(e), () => engine.nextId());
 
       engine.scheduleEvent(makeEvent({ id: 'trigger', timestamp: 5, targetComponentId: 'comp-a' }));
       engine.run();

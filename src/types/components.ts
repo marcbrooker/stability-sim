@@ -34,6 +34,7 @@ export interface SimContext {
   getComponent(id: string): SimComponent;
   getDownstream(componentId: string): string[];
   random(): number; // seeded PRNG
+  nextId(): string; // deterministic unique ID generator
   recordMetric(componentId: string, name: string, value: number, time: number): void;
 }
 

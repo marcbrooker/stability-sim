@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent } from '../../types/events';
 import type {
   SimComponent,
@@ -109,7 +108,7 @@ export class Throttle implements SimComponent {
     this.pendingOrigins.set(event.workUnit.id, event.workUnit.originClientId);
 
     const arrivalEvent: SimEvent = {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: downstreamIds[0],
       workUnit: { ...event.workUnit, originClientId: this.id },

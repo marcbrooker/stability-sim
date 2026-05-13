@@ -217,7 +217,7 @@ describe('Worker simulation flow (integration)', () => {
 
     // Schedule failure events (none in this test)
     const injector = new FailureInjector();
-    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt));
+    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt), () => engine.nextId());
 
     // Generate initial client events
     const context = {
@@ -234,6 +234,7 @@ describe('Worker simulation flow (integration)', () => {
           .map(c => c.targetId);
       },
       random: () => engine.getRng().random(),
+      nextId: () => engine.nextId(),
       recordMetric: (componentId: string, name: string, value: number, time: number) => {
         engine.getMetrics().record(componentId, name, value, time);
       },
@@ -282,6 +283,7 @@ describe('Worker simulation flow (integration)', () => {
           .map(c => c.targetId);
       },
       random: () => engine.getRng().random(),
+      nextId: () => engine.nextId(),
       recordMetric: (componentId: string, name: string, value: number, time: number) => {
         engine.getMetrics().record(componentId, name, value, time);
       },
@@ -326,6 +328,7 @@ describe('Worker simulation flow (integration)', () => {
           .map(c => c.targetId);
       },
       random: () => engine.getRng().random(),
+      nextId: () => engine.nextId(),
       recordMetric: (componentId: string, name: string, value: number, time: number) => {
         engine.getMetrics().record(componentId, name, value, time);
       },
@@ -374,6 +377,7 @@ describe('Worker simulation flow (integration)', () => {
           .map(c => c.targetId);
       },
       random: () => engine.getRng().random(),
+      nextId: () => engine.nextId(),
       recordMetric: (componentId: string, name: string, value: number, time: number) => {
         engine.getMetrics().record(componentId, name, value, time);
       },

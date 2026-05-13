@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent, WorkUnit } from '../types/events';
 import type { SimComponent } from '../types/components';
 import type { FailureScenario } from '../types/failures';
@@ -26,14 +25,15 @@ export class FailureInjector {
   scheduleFailures(
     scenarios: FailureScenario[],
     scheduleEvent: (event: SimEvent) => void,
+    nextId: () => string,
   ): void {
     for (const scenario of scenarios) {
-      const injectEvent = this.createInjectEvent(scenario);
+      const injectEvent = this.createInjectEvent(scenario, nextId);
       scheduleEvent(injectEvent);
 
       // cache-flush is a one-shot event with no recovery
       if (scenario.type !== 'cache-flush') {
-        const recoverEvent = this.createRecoverEvent(scenario);
+        const recoverEvent = this.createRecoverEvent(scenario, nextId);
         scheduleEvent(recoverEvent);
       }
     }
@@ -92,10 +92,10 @@ export class FailureInjector {
 
   // --- Private helpers ---
 
-  private createInjectEvent(scenario: FailureScenario): SimEvent {
-    const workUnit = this.createFailureWorkUnit(scenario, 'inject');
+  private createInjectEvent(scenario: FailureScenario, nextId: () => string): SimEvent {
+    const workUnit = this.createFailureWorkUnit(scenario, 'inject', nextId);
     return {
-      id: uuidv4(),
+      id: nextId(),
       timestamp: scenario.triggerTime,
       targetComponentId: this.getTargetId(scenario),
       workUnit,
@@ -103,11 +103,11 @@ export class FailureInjector {
     };
   }
 
-  private createRecoverEvent(scenario: FailureScenario): SimEvent {
+  private createRecoverEvent(scenario: FailureScenario, nextId: () => string): SimEvent {
     const recoverTime = this.getRecoverTime(scenario);
-    const workUnit = this.createFailureWorkUnit(scenario, 'recover');
+    const workUnit = this.createFailureWorkUnit(scenario, 'recover', nextId);
     return {
-      id: uuidv4(),
+      id: nextId(),
       timestamp: recoverTime,
       targetComponentId: this.getTargetId(scenario),
       workUnit,
@@ -135,9 +135,10 @@ export class FailureInjector {
   private createFailureWorkUnit(
     scenario: FailureScenario,
     phase: 'inject' | 'recover',
+    nextId: () => string,
   ): WorkUnit {
     return {
-      id: uuidv4(),
+      id: nextId(),
       originClientId: '__failure-injector__',
       createdAt: scenario.triggerTime,
       key: `failure-${scenario.type}`,

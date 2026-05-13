@@ -55,6 +55,9 @@ export class SimulationEngine {
   /** Flag set by pause() to interrupt the run loop */
   private pauseRequested: boolean = false;
 
+  /** Monotonic counter for deterministic ID generation */
+  private _nextIdCounter: number = 0;
+
   /** ID of the component currently being dispatched to (for partition checks) */
   private currentDispatchId: string | null = null;
 
@@ -125,6 +128,11 @@ export class SimulationEngine {
 
   getRng(): SeededRNG {
     return this.rng;
+  }
+
+  /** Generate a deterministic unique ID */
+  nextId(): string {
+    return 'e' + String(++this._nextIdCounter);
   }
 
   /** Set the failure injector for handling failure events during simulation */
@@ -198,6 +206,7 @@ export class SimulationEngine {
     this.eventQueue.clear();
     this.metrics.reset();
     this.rng.seed(this.seed);
+    this._nextIdCounter = 0;
 
     // Reset all components
     for (const comp of this.components.values()) {
@@ -350,6 +359,9 @@ export class SimulationEngine {
       },
       random(): number {
         return engine.rng.random();
+      },
+      nextId(): string {
+        return engine.nextId();
       },
       recordMetric(componentId: string, name: string, value: number, time: number): void {
         engine.metrics.record(componentId, name, value, time);

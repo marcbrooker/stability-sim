@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent } from '../../types/events';
 import type {
   SimComponent,
@@ -98,7 +97,7 @@ export class LoadBalancer implements SimComponent {
 
     // Forward as arrival to selected downstream
     const arrivalEvent: SimEvent = {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: selected,
       workUnit: { ...event.workUnit, originClientId: this.id },

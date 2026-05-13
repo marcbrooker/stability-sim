@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent, WorkUnit } from '../../types/events';
 import type {
   SimComponent,
@@ -105,7 +104,7 @@ export class Cache implements SimComponent {
     };
 
     const arrivalEvent: SimEvent = {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: this.cacheConfig.downstreamComponentId,
       workUnit: forwardedWu,
@@ -138,7 +137,7 @@ export class Cache implements SimComponent {
       metadata: { ...event.workUnit.metadata, failed },
     };
     return [{
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: realOrigin,
       workUnit: wu,
@@ -229,7 +228,7 @@ export class Cache implements SimComponent {
       metadata: { ...workUnit.metadata, failed },
     };
     return {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: workUnit.originClientId,
       workUnit: wu,

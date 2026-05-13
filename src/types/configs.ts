@@ -79,4 +79,5 @@ export interface QueueConfig {
   maxCapacity?: number; // undefined = unlimited
   maxConcurrency?: number; // max items in-flight to downstream; undefined = unlimited
   loadSheddingThreshold?: number; // must be <= maxCapacity
+  ordering?: 'fifo' | 'lifo'; // default 'fifo'
 }

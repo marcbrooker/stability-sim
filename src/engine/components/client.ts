@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent, WorkUnit, EventKind } from '../../types/events';
 import type {
   SimComponent,
@@ -78,14 +77,14 @@ export class Client implements SimComponent {
         const interArrival = rate > 0
           ? this.exponentialSample(1 / rate, context)
           : 0.001;
-        events.push(this.createSelfArrival(context.currentTime + interArrival));
+        events.push(this.createSelfArrival(context.currentTime + interArrival, context));
         break;
       }
       case 'closed-loop': {
         // Start maxConcurrency work units immediately
         const count = pattern.maxConcurrency;
         for (let i = 0; i < count; i++) {
-          events.push(this.createSelfArrival(context.currentTime));
+          events.push(this.createSelfArrival(context.currentTime, context));
         }
         break;
       }
@@ -93,17 +92,17 @@ export class Client implements SimComponent {
         // Schedule first self-arrival based on startRate
         if (pattern.startRate > 0) {
           const interArrival = this.exponentialSample(1 / pattern.startRate, context);
-          events.push(this.createSelfArrival(context.currentTime + interArrival));
+          events.push(this.createSelfArrival(context.currentTime + interArrival, context));
         } else {
           // Start rate is 0, schedule a small delay then check
-          events.push(this.createSelfArrival(context.currentTime + 0.001));
+          events.push(this.createSelfArrival(context.currentTime + 0.001, context));
         }
         break;
       }
       case 'burst': {
         // Schedule all burst work units at atTime
         for (let i = 0; i < pattern.count; i++) {
-          events.push(this.createSelfArrival(pattern.atTime));
+          events.push(this.createSelfArrival(pattern.atTime, context));
         }
         break;
       }
@@ -172,7 +171,7 @@ export class Client implements SimComponent {
     const workUnit = this.createWorkUnit(context.currentTime, context);
     this.pendingWorkUnits.add(workUnit.id);
     events.push({
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: this.getTargetId(context),
       workUnit,
@@ -183,7 +182,7 @@ export class Client implements SimComponent {
     const timeout = this.clientConfig.timeout ?? 1;
     if (timeout > 0) {
       const timeoutEvent: SimEvent = {
-        id: uuidv4(),
+        id: context.nextId(),
         timestamp: context.currentTime + timeout,
         targetComponentId: this.id,
         workUnit: { ...workUnit },
@@ -198,9 +197,9 @@ export class Client implements SimComponent {
       const rate = this.getOpenLoopRate(context.currentTime, pattern);
       if (rate > 0) {
         const interArrival = this.exponentialSample(1 / rate, context);
-        events.push(this.createSelfArrival(context.currentTime + interArrival));
+        events.push(this.createSelfArrival(context.currentTime + interArrival, context));
       } else {
-        events.push(this.createSelfArrival(context.currentTime + 0.001));
+        events.push(this.createSelfArrival(context.currentTime + 0.001, context));
       }
     } else if (pattern.type === 'ramping') {
       const currentRate = this.getRampingRate(context.currentTime, pattern);
@@ -209,7 +208,7 @@ export class Client implements SimComponent {
         const nextTime = context.currentTime + interArrival;
         // Only schedule if within the ramping duration
         if (nextTime <= pattern.duration) {
-          events.push(this.createSelfArrival(nextTime));
+          events.push(this.createSelfArrival(nextTime, context));
         }
       }
     }
@@ -277,7 +276,7 @@ export class Client implements SimComponent {
       // Closed-loop: generate next request (Req 3.2)
       if (pattern.type === 'closed-loop') {
         const thinkTime = pattern.thinkTime;
-        events.push(this.createSelfArrival(context.currentTime + thinkTime));
+        events.push(this.createSelfArrival(context.currentTime + thinkTime, context));
       }
     } else {
       // Failure path
@@ -300,7 +299,7 @@ export class Client implements SimComponent {
         // For closed-loop, generate next request
         if (pattern.type === 'closed-loop') {
           const thinkTime = pattern.thinkTime;
-          events.push(this.createSelfArrival(context.currentTime + thinkTime));
+          events.push(this.createSelfArrival(context.currentTime + thinkTime, context));
         }
       }
     }
@@ -344,7 +343,7 @@ export class Client implements SimComponent {
       this.inFlightCount--;
       if (pattern.type === 'closed-loop') {
         const thinkTime = pattern.thinkTime;
-        events.push(this.createSelfArrival(context.currentTime + thinkTime));
+        events.push(this.createSelfArrival(context.currentTime + thinkTime, context));
       }
     }
 
@@ -412,12 +411,12 @@ export class Client implements SimComponent {
     // independently; the old ID remains in resolvedWorkUnits to catch its timeout.
     const retryWorkUnit: WorkUnit = {
       ...workUnit,
-      id: uuidv4(),
+      id: context.nextId(),
     };
     this.pendingWorkUnits.add(retryWorkUnit.id);
 
     const events: SimEvent[] = [{
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime,
       targetComponentId: this.getTargetId(context),
       workUnit: retryWorkUnit,
@@ -428,7 +427,7 @@ export class Client implements SimComponent {
     const timeout = this.clientConfig.timeout ?? 1;
     if (timeout > 0) {
       const timeoutEvent: SimEvent = {
-        id: uuidv4(),
+        id: context.nextId(),
         timestamp: context.currentTime + timeout,
         targetComponentId: this.id,
         workUnit: { ...retryWorkUnit },
@@ -464,13 +463,13 @@ export class Client implements SimComponent {
   /**
    * Create a self-arrival event (trigger to generate traffic).
    */
-  private createSelfArrival(timestamp: number): SimEvent {
+  private createSelfArrival(timestamp: number, context: SimContext): SimEvent {
     return {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp,
       targetComponentId: this.id,
       workUnit: {
-        id: uuidv4(),
+        id: context.nextId(),
         originClientId: this.id,
         createdAt: timestamp,
         key: '',
@@ -491,7 +490,7 @@ export class Client implements SimComponent {
       ? `key-${Math.floor(context.random() * numKeys)}`
       : '';
     return {
-      id: uuidv4(),
+      id: context.nextId(),
       originClientId: this.id,
       createdAt: currentTime,
       key,

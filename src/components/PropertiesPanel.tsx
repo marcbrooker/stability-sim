@@ -716,6 +716,16 @@ function QueueConfigFields({
   const unlimitedConcurrency = config.maxConcurrency === undefined;
   return (
     <>
+      <SelectField
+        label="Ordering"
+        value={config.ordering ?? 'fifo'}
+        options={[
+          { value: 'fifo', label: 'FIFO (First In, First Out)' },
+          { value: 'lifo', label: 'LIFO (Last In, First Out)' },
+        ]}
+        onChange={(v) => update({ ordering: v })}
+        info="FIFO processes the oldest item first (fair). LIFO processes the newest item first — reduces latency for recent arrivals but can starve older items."
+      />
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, cursor: 'pointer' }}>
         <input
           className="sim-checkbox"

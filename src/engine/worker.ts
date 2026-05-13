@@ -263,6 +263,7 @@ function handleStart(architecture: Architecture, config: SimulationConfig, seed:
   failureInjector.scheduleFailures(
     simConfig.failureScenarios,
     (evt) => engine!.scheduleEvent(evt),
+    () => engine!.nextId(),
   );
 
   // Generate initial events from client components
@@ -280,6 +281,7 @@ function handleStart(architecture: Architecture, config: SimulationConfig, seed:
         .map(c => c.targetId);
     },
     random: () => engine!.getRng().random(),
+    nextId: () => engine!.nextId(),
     recordMetric: (componentId: string, name: string, value: number, time: number) => {
       engine!.getMetrics().record(componentId, name, value, time);
     },

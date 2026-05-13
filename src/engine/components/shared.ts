@@ -5,7 +5,6 @@
  * Database, Cache, Queue, and LoadBalancer components.
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent, WorkUnit } from '../../types/events';
 import type { SimContext } from '../../types/components';
 import type { Distribution, LoadDependentLatency } from '../../types/configs';
@@ -23,7 +22,7 @@ export function createDepartureToOrigin(
     metadata: { ...workUnit.metadata, failed },
   };
   return {
-    id: uuidv4(),
+    id: context.nextId(),
     timestamp: context.currentTime,
     targetComponentId: workUnit.originClientId,
     workUnit: wu,

@@ -84,6 +84,9 @@ function createContext(
     random() {
       return engine.getRng().random();
     },
+    nextId() {
+      return engine.nextId();
+    },
     recordMetric(componentId: string, name: string, value: number, time: number) {
       engine.getMetrics().record(componentId, name, value, time);
     },
@@ -157,7 +160,7 @@ describe('Integration: Client → Server simulation', () => {
     const engine = new SimulationEngine(components, arch.connections, config);
 
     const injector = new FailureInjector();
-    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt));
+    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt), () => engine.nextId());
 
     const context = createContext(engine, components, arch.connections);
     seedClientEvents(components, context, engine);
@@ -317,7 +320,7 @@ describe('Integration: Server-crash failure injection', () => {
 
     // Schedule failure events
     const injector = new FailureInjector();
-    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt));
+    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt), () => engine.nextId());
 
     const context = createContext(engine, components, arch.connections);
     seedClientEvents(components, context, engine);
@@ -433,7 +436,7 @@ describe('Integration: Cache flush with seed 76', () => {
 
     const injector = new FailureInjector();
     engine.setFailureInjector(injector);
-    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt));
+    injector.scheduleFailures(config.failureScenarios, (evt) => engine.scheduleEvent(evt), () => engine.nextId());
 
     const context = createContext(engine, components, arch.connections);
     seedClientEvents(components, context, engine);

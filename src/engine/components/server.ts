@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SimEvent, WorkUnit } from '../../types/events';
 import type {
   SimComponent,
@@ -87,7 +86,7 @@ export class Server implements SimComponent {
 
     const serviceTime = this.computeServiceTime(context);
     const departureEvent: SimEvent = {
-      id: uuidv4(),
+      id: context.nextId(),
       timestamp: context.currentTime + serviceTime,
       targetComponentId: this.id,
       workUnit,
